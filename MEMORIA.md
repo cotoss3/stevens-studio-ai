@@ -8,7 +8,9 @@ Este documento contiene la información histórica, de arquitectura y configurac
 
 > [!IMPORTANT]
 > **Alojamiento y Cuenta Principal**:
-> La base de datos (BDD) principal de producción y desarrollo, junto con el almacenamiento de archivos de catálogo, se encuentra alojada en la cuenta de **Jorge Supabase**.
+> La base de datos (BDD) principal del proyecto está alojada en Supabase con el id de proyecto `wnuujseqnuouawacewgv`:
+> - **URL Supabase**: `https://wnuujseqnuouawacewgv.supabase.co`
+> - **Storage Bucket**: `product-photos` (Público)
 
 ---
 
