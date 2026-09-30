@@ -1,6 +1,6 @@
 -- =====================================================================
--- SCRIPT DE INICIALIZACIÓN COMPLETA PARA STEVENS STUDIO AI
--- Ejecuta este script en el SQL Editor de tu nuevo proyecto de Supabase
+-- SCRIPT IDEMPOTENTE DE INICIALIZACIÓN COMPLETA PARA STEVENS STUDIO AI
+-- Se puede ejecutar múltiples veces sin errores de duplicados.
 -- =====================================================================
 
 -- 1. TABLA DE PERFILES DE USUARIOS (profiles)
@@ -12,16 +12,16 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- Habilitar RLS en profiles
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
--- Políticas de acceso para profiles
-CREATE POLICY "Permitir lectura de perfiles a usuarios autenticados" 
+DROP POLICY IF EXISTS "Permitir lectura de perfiles a todos" ON public.profiles;
+CREATE POLICY "Permitir lectura de perfiles a todos" 
   ON public.profiles FOR SELECT 
   TO authenticated, anon 
   USING (true);
 
-CREATE POLICY "Permitir inserción y actualización de perfiles" 
+DROP POLICY IF EXISTS "Permitir insercion y actualizacion de perfiles" ON public.profiles;
+CREATE POLICY "Permitir insercion y actualizacion de perfiles" 
   ON public.profiles FOR ALL 
   TO authenticated, anon 
   USING (true) 
@@ -43,30 +43,31 @@ CREATE TABLE IF NOT EXISTS public.products (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- Crear índice para búsquedas rápidas por UPC
 CREATE INDEX IF NOT EXISTS idx_products_upc ON public.products(upc);
 CREATE INDEX IF NOT EXISTS idx_products_user_id ON public.products(user_id);
 
--- Habilitar RLS en products
 ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
 
--- Políticas de acceso para products
+DROP POLICY IF EXISTS "Permitir lectura de productos a todos" ON public.products;
 CREATE POLICY "Permitir lectura de productos a todos" 
   ON public.products FOR SELECT 
   TO authenticated, anon 
   USING (true);
 
-CREATE POLICY "Permitir inserción de productos" 
+DROP POLICY IF EXISTS "Permitir insercion de productos" ON public.products;
+CREATE POLICY "Permitir insercion de productos" 
   ON public.products FOR INSERT 
   TO authenticated, anon 
   WITH CHECK (true);
 
-CREATE POLICY "Permitir actualización de productos" 
+DROP POLICY IF EXISTS "Permitir actualizacion de productos" ON public.products;
+CREATE POLICY "Permitir actualizacion de productos" 
   ON public.products FOR UPDATE 
   TO authenticated, anon 
   USING (true);
 
-CREATE POLICY "Permitir eliminación de productos" 
+DROP POLICY IF EXISTS "Permitir eliminacion de productos" ON public.products;
+CREATE POLICY "Permitir eliminacion de productos" 
   ON public.products FOR DELETE 
   TO authenticated, anon 
   USING (true);
@@ -78,10 +79,9 @@ CREATE TABLE IF NOT EXISTS public.published_upcs (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- Habilitar RLS en published_upcs
 ALTER TABLE public.published_upcs ENABLE ROW LEVEL SECURITY;
 
--- Políticas de acceso para published_upcs
+DROP POLICY IF EXISTS "Permitir todo acceso a published_upcs" ON public.published_upcs;
 CREATE POLICY "Permitir todo acceso a published_upcs" 
   ON public.published_upcs FOR ALL 
   TO authenticated, anon 
@@ -94,29 +94,32 @@ INSERT INTO storage.buckets (id, name, public)
 VALUES ('product-photos', 'product-photos', true)
 ON CONFLICT (id) DO UPDATE SET public = true;
 
--- Políticas de acceso para objetos en Storage
-CREATE POLICY "Acceso público de lectura a fotos de productos" 
+DROP POLICY IF EXISTS "Acceso publico de lectura a fotos de productos" ON storage.objects;
+CREATE POLICY "Acceso publico de lectura a fotos de productos" 
   ON storage.objects FOR SELECT 
   TO public 
   USING (bucket_id = 'product-photos');
 
+DROP POLICY IF EXISTS "Permitir subir fotos de productos" ON storage.objects;
 CREATE POLICY "Permitir subir fotos de productos" 
   ON storage.objects FOR INSERT 
   TO authenticated, anon 
   WITH CHECK (bucket_id = 'product-photos');
 
+DROP POLICY IF EXISTS "Permitir actualizar fotos de productos" ON storage.objects;
 CREATE POLICY "Permitir actualizar fotos de productos" 
   ON storage.objects FOR UPDATE 
   TO authenticated, anon 
   USING (bucket_id = 'product-photos');
 
+DROP POLICY IF EXISTS "Permitir eliminar fotos de productos" ON storage.objects;
 CREATE POLICY "Permitir eliminar fotos de productos" 
   ON storage.objects FOR DELETE 
   TO authenticated, anon 
   USING (bucket_id = 'product-photos');
 
 
--- 5. TRIGGER AUTOMÁTICO AL CREAR USUARIOS EN AUTH (opcional pero recomendado)
+-- 5. TRIGGER AUTOMÁTICO PARA CREACIÓN DE USUARIOS EN AUTH
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
