@@ -338,17 +338,17 @@ const App: React.FC = () => {
       // buscamos el correo en la tabla profiles por nombre (case-insensitive)
       if (!authEmail.includes('@')) {
         setProcessingMessage('BUSCANDO USUARIO EN BASE DE DATOS...');
-        const { data: profileByName, error: nameErr } = await supabase
+        const { data: profilesByName, error: nameErr } = await supabase
           .from('profiles')
           .select('email')
           .ilike('name', authEmail)
-          .maybeSingle();
+          .limit(1);
 
         if (nameErr) throw new Error("Error al buscar usuario: " + nameErr.message);
-        if (!profileByName) {
+        if (!profilesByName || profilesByName.length === 0) {
           throw new Error(`No se encontró el usuario "${authEmail}". Verifica el nombre o usa tu correo completo.`);
         }
-        authEmail = profileByName.email;
+        authEmail = profilesByName[0].email;
       }
 
       // 1. Autenticar con Supabase Auth
@@ -363,13 +363,14 @@ const App: React.FC = () => {
 
       // 2. Obtener el perfil (rol y nombre)
       setProcessingMessage('VERIFICANDO ROL DE USUARIO...');
-      const { data: profileData, error: profileErr } = await supabase
+      const { data: profilesData, error: profileErr } = await supabase
         .from('profiles')
         .select('role, name')
         .eq('id', authData.user.id)
-        .maybeSingle();
+        .limit(1);
 
       if (profileErr) throw new Error("Error al consultar perfiles: " + profileErr.message);
+      const profileData = profilesData && profilesData.length > 0 ? profilesData[0] : null;
       if (!profileData) {
         await supabase.auth.signOut();
         throw new Error("Tu usuario no tiene acceso a Stevens Studio AI. Contacta al administrador.");
@@ -1617,19 +1618,19 @@ const App: React.FC = () => {
             </div>
             <form onSubmit={handleLogin} className="w-full space-y-4">
               <div>
-                <label className="text-[10px] font-black text-slate-500 uppercase mb-2 block tracking-widest">Usuario o Correo</label>
+                <label className="text-xs font-bold text-slate-700 uppercase mb-2 block tracking-wider">Usuario o Correo</label>
                 <input type="text" value={loginEmail} onChange={e => setLoginEmail(e.target.value)}
-                  placeholder="Admin  o  usuario@correo.com"
-                  className="w-full px-5 py-3.5 glass-panel border border-white/60 rounded-[20px] text-sm focus:border-brand-gold outline-none transition-all text-slate-50" required />
+                  placeholder="Admin o usuario@correo.com"
+                  className="w-full px-5 py-4 bg-slate-900 border border-slate-700 text-white placeholder-slate-400 rounded-2xl text-sm focus:border-amber-400 focus:outline-none transition-all shadow-inner font-medium" required />
               </div>
               <div>
-                <label className="text-[10px] font-black text-slate-500 uppercase mb-2 block tracking-widest">Contraseña</label>
+                <label className="text-xs font-bold text-slate-700 uppercase mb-2 block tracking-wider">Contraseña</label>
                 <input type="password" value={loginPassword} onChange={e => setLoginPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full px-5 py-3.5 glass-panel border border-white/60 rounded-[20px] text-sm focus:border-brand-gold outline-none transition-all text-slate-50" required />
+                  className="w-full px-5 py-4 bg-slate-900 border border-slate-700 text-white placeholder-slate-400 rounded-2xl text-sm focus:border-amber-400 focus:outline-none transition-all shadow-inner font-medium" required />
               </div>
               <button type="submit"
-                className="w-full py-4 mt-4 bg-slate-900 text-brand-navy font-black rounded-[20px] hover:bg-slate-900-light transition-all active:scale-95 uppercase tracking-widest text-xs shadow-lg shadow-brand-gold/15">
+                className="w-full py-4 mt-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-2xl transition-all active:scale-95 uppercase tracking-wider text-xs shadow-lg shadow-amber-500/20">
                 Ingresar
               </button>
             </form>
