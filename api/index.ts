@@ -9,10 +9,10 @@ app.use(express.json({ limit: '50mb' }));
 let supabaseAdmin: SupabaseClient | null = null;
 function getSupabaseAdmin(): SupabaseClient {
   if (!supabaseAdmin) {
-    const url = process.env.SUPABASE_URL;
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
     if (!url || !serviceKey) {
-      console.warn("ADVERTENCIA: SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY no configuradas en las variables de entorno.");
+      console.warn("ADVERTENCIA: SUPABASE_URL o llaves de Supabase no configuradas en las variables de entorno.");
     }
     supabaseAdmin = createClient(url || 'https://placeholder.supabase.co', serviceKey || 'placeholder', {
       auth: {
