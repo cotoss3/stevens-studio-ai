@@ -1,0 +1,10 @@
+{
+  "name": "Remix: Fotos Stevens Tienda",
+  "description": "A productivity tool that extracts UPC codes from photos to automatically rename and organize product images.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

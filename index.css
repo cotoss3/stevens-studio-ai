@@ -1,0 +1,63 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800;900&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Outfit", sans-serif;
+  
+  --color-brand-gold: #111827;
+  --color-brand-gold-light: #374151;
+  --color-brand-gold-dark: #000000;
+  --color-brand-navy: rgba(248, 249, 250, 0.75);
+  --color-brand-navy-light: rgba(255, 255, 255, 0.85);
+
+  --shadow-glass: 0 15px 35px rgba(0, 0, 0, 0.05);
+  --shadow-glass-inner: inset 0 1px 1px rgba(255, 255, 255, 0.9), 0 4px 6px rgba(0, 0, 0, 0.02);
+  --shadow-glass-input: inset 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+body {
+  background-color: #E5E7EB; /* Neutral cold light */
+  color: #1F2937; /* Slate-800 */
+  font-family: var(--font-sans);
+  /* Liquid ambient lighting */
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(255, 255, 255, 0.8) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(200, 205, 215, 0.5) 0px, transparent 50%);
+  background-attachment: fixed;
+  background-size: cover;
+  padding: 1.5rem; /* Generous outer padding for floating window effect */
+  min-height: 100vh;
+}
+
+@media (max-width: 768px) {
+  body {
+    padding: 0.5rem;
+  }
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+}
+
+/* Custom utilities for glass */
+.glass-panel {
+  background: var(--color-brand-navy);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  box-shadow: var(--shadow-glass);
+}
+
+.glass-card {
+  background: linear-gradient(135deg, #F3F4F6 0%, #FFFFFF 100%);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow: var(--shadow-glass-inner);
+}
+
+.glass-input {
+  background: rgba(235, 238, 242, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: var(--shadow-glass-input);
+}
+

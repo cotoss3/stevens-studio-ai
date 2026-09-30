@@ -1,0 +1,34 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment files and secrets
+.env
+.env.local
+.env.*.local
+*.local
+
+# Dependencies and build outputs
+node_modules
+dist
+dist-ssr
+
+# Temporary scratch and backup files
+_backup_utf8
+scratch_*.txt
+replacement_content.txt
+app_tail.txt
+
+# IDE & Editor files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
