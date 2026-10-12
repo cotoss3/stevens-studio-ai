@@ -8,7 +8,8 @@ Este documento contiene la información histórica, de arquitectura y configurac
 
 > [!IMPORTANT]
 > **Alojamiento y Cuenta Principal**:
-> La base de datos (BDD) principal del proyecto está alojada en Supabase con el id de proyecto `wnuujseqnuouawacewgv`:
+> - **Correo del Proyecto (Cuenta Supabase)**: `fcontreras@datakorex.com`
+> - **Proyecto Supabase ID**: `wnuujseqnuouawacewgv`
 > - **URL Supabase**: `https://wnuujseqnuouawacewgv.supabase.co`
 > - **Storage Bucket**: `product-photos` (Público)
 
@@ -18,8 +19,8 @@ Este documento contiene la información histórica, de arquitectura y configurac
 La aplicación permite a los operadores de Stevens catalogar productos físicos de forma ágil siguiendo un flujo asistido por Inteligencia Artificial:
 1. **Identificación (UPC)**: Escaneo del código de barras del producto a través de la cámara trasera y extracción de los dígitos por el modelo Gemini 3.5 Flash.
 2. **Validación de Duplicados**: El código UPC extraído se valida contra la base de datos de Supabase. Si el producto ya fue catalogado, se bloquea la toma de fotografías para evitar duplicados.
-3. **Fotografía de Estudio**: Captura de la foto del producto, la cual pasa por el modelo Gemini 2.5 Flash Image para remover fondos y sombras de forma automatizada.
-4. **Optimización Visual**: Un algoritmo en el cliente recorta los bordes transparentes y escala el producto de forma centrada a exactamente 1000x1000px, ocupando el 95% del canvas sobre fondo blanco puro (#FFFFFF).
+3. **Fotografía de Estudio**: Captura de la foto del producto, procesada por Gemini 2.5 Flash Image con iluminación de estudio e-commerce limpia y brillante, fondo blanco puro (#FFFFFF), y **estricta preservación de textos, marcas, costuras y patrones del producto original sin alterarlos**.
+4. **Optimización Visual**: Un algoritmo en el cliente detecta el producto, lo centra perfectamente y lo escala a formato cuadrado exacto de 1000x1000px, ocupando al menos el 80% (85% de su dimensión dominante) sobre fondo blanco puro (#FFFFFF).
 5. **Publicación**: La imagen final optimizada se almacena en Supabase Storage (bucket `product-photos`) con el nombre `{UPC}.jpg` y se registra en la tabla `products`.
 
 ---
@@ -142,6 +143,6 @@ Continuación del trabajo iniciado con Antigravity/Gemini.
 ### Pendientes / notas
 * La migración `migracion_deleted_at.sql` ya fue aplicada en Supabase
   (27/08/2026).
-* El proyecto de Supabase en uso es `pismwnzcawsofrpcnaem` (cuenta de Jorge).
+* El proyecto de Supabase actual es `wnuujseqnuouawacewgv` registrado bajo la cuenta / correo `fcontreras@datakorex.com`.
 * Respaldos de los archivos previos a la corrección de codificación en
   `_backup_utf8/`.

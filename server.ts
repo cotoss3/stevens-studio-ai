@@ -515,7 +515,7 @@ async function startServer() {
                 },
               },
               {
-                text: "Please remove the background of this product completely and replace it with an absolute pure white background (hex #FFFFFF). Scale and center the product so that its elements span exactly 95% of the total width of the image, leaving a very small and clean 2.5% margin on the left and right. Remove all shadows. Enhance the product details and clarity for a professional e-commerce catalog look. Ensure bright, even lighting across the entire product. Output ONLY the resulting image without any text or additional elements.",
+                text: "Convert this photo into a professional e-commerce studio catalog shot:\n1. Remove the background completely and replace with pure, seamless solid white (hex #FFFFFF).\n2. Center the product cleanly, occupying approximately 80% to 85% of the frame (height or dominant dimension), leaving clean balanced margins.\n3. Apply professional, crisp, bright, and even studio lighting across the entire product, removing all harsh shadows, glare, human hands/fingers, and background clutter.\n4. CRITICAL: PRESERVE EXACT FIDELITY. Do NOT alter, hallucinate, blur, or distort any printed text, typography, brand logos, fabric patterns, embroidery, stitching, or material textures on the product. The product details, colors, and patterns must remain 100% faithful to the original item.\n5. Output ONLY the resulting product image without any added external text, borders, or graphics.",
               },
             ],
           },

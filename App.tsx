@@ -174,7 +174,7 @@ const App: React.FC = () => {
         setProcessingMessage(`LÍMITE EXCEDIDO. REINTENTANDO (${attempt}/3) EN ${Math.round(delayMs / 1000)}s...`);
       });
       
-      setProcessingMessage('ESCALANDO PRODUCTO AL 95% Y AJUSTANDO A 1000x1000 px...');
+      setProcessingMessage('CENTRANDO PRODUCTO (≥80%) Y AJUSTANDO A 1000x1000 px FONDO BLANCO...');
       const finalResizedImage = await processAndResizeProductImage(studioImage);
 
       setState(prev => ({

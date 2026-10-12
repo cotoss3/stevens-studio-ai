@@ -2,13 +2,13 @@
  * Utility to process product images for professional e-commerce requirements:
  * 1. Guarantees output is exactly 1000x1000 pixels.
  * 2. Scans the non-white/transparent product bounds.
- * 3. Scales and centers the product so its dominant dimension covers exactly 95% of the canvas.
+ * 3. Scales and centers the product so it covers at least 80% (default 85%) of the canvas.
  * 4. Fills the canvas background with pure absolute white (#FFFFFF).
  */
 export async function processAndResizeProductImage(
   base64Data: string,
   targetSize = 1000,
-  fillPercentage = 0.95
+  fillPercentage = 0.85
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     const img = new Image();
