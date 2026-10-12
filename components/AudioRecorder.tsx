@@ -13,6 +13,8 @@ interface AudioRecorderProps {
   initialTitle?: string | null;
   initialDescription?: string | null;
   initialTranscription?: string | null;
+  productImage?: string | null;
+  upcCode?: string | null;
 }
 
 const AudioRecorder: React.FC<AudioRecorderProps> = ({
@@ -20,7 +22,9 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
   onSkip,
   initialTitle = '',
   initialDescription = '',
-  initialTranscription = ''
+  initialTranscription = '',
+  productImage = null,
+  upcCode = null
 }) => {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
@@ -119,7 +123,12 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
     setIsProcessing(true);
     setError(null);
     try {
-      const result = await geminiService.processAudio(base64AudioData, mime);
+      const result = await geminiService.processAudio(
+        base64AudioData,
+        mime,
+        productImage,
+        upcCode
+      );
       setTitle(result.title);
       setDescription(result.description);
       setTranscription(result.transcription);
@@ -263,8 +272,8 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
       {isProcessing && (
         <div className="bg-slate-900/90 border border-amber-500/30 rounded-2xl p-6 text-center space-y-3 shadow-xl backdrop-blur-md">
           <Loader2 size={36} className="text-amber-400 animate-spin mx-auto" />
-          <p className="text-sm font-bold text-amber-400 uppercase tracking-wider">Transcripción y Análisis IA en Proceso</p>
-          <p className="text-xs text-slate-400">Gemini está analizando el audio para generar el título y la descripción del producto...</p>
+          <p className="text-sm font-bold text-amber-400 uppercase tracking-wider">Validación y Ficha IA en Proceso (&lt; 10s)</p>
+          <p className="text-xs text-slate-400">Escuchando audio (prioridad), contrastando con la imagen y validando con catálogo de internet...</p>
         </div>
       )}
 

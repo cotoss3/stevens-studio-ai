@@ -48,18 +48,21 @@ export class GeminiService {
   }
 
   /**
-   * Proxies audio transcription and product detail extraction (title & description) to Gemini.
+   * Proxies audio transcription and product detail extraction (title & description) to Gemini,
+   * combining voice audio, product photo and UPC to validate and generate accurate catalog details.
    */
   async processAudio(
     base64Audio: string,
-    mimeType: string = 'audio/webm'
+    mimeType: string = 'audio/webm',
+    base64Image?: string | null,
+    upcCode?: string | null
   ): Promise<{ transcription: string; title: string; description: string }> {
     const response = await fetch('/api/gemini/process-audio', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ base64Audio, mimeType }),
+      body: JSON.stringify({ base64Audio, mimeType, base64Image, upcCode }),
     });
 
     if (!response.ok) {

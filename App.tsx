@@ -1681,6 +1681,8 @@ const App: React.FC = () => {
             </div>
             
             <AudioRecorder
+              productImage={state.productImage}
+              upcCode={state.upcCode}
               initialTitle={state.productTitle}
               initialDescription={state.productDescription}
               initialTranscription={state.transcription}

@@ -490,7 +490,7 @@ app.post("/api/gemini/transform-studio-shot", async (req, res) => {
 
 app.post("/api/gemini/process-audio", async (req, res) => {
   try {
-    const { base64Audio, mimeType = 'audio/webm' } = req.body;
+    const { base64Audio, mimeType = 'audio/webm', base64Image, upcCode } = req.body;
     if (!base64Audio) {
       return res.status(400).json({ error: "Falta el archivo de audio" });
     }
@@ -500,34 +500,58 @@ app.post("/api/gemini/process-audio", async (req, res) => {
     }
 
     const model = 'gemini-3.5-flash';
-    const cleanBase64 = base64Audio.split(',')[1] || base64Audio;
+    const cleanAudioBase64 = base64Audio.split(',')[1] || base64Audio;
+
+    const parts: any[] = [
+      {
+        inlineData: {
+          mimeType: mimeType,
+          data: cleanAudioBase64,
+        },
+      },
+    ];
+
+    if (base64Image) {
+      const cleanImgBase64 = base64Image.split(',')[1] || base64Image;
+      parts.push({
+        inlineData: {
+          mimeType: 'image/jpeg',
+          data: cleanImgBase64,
+        },
+      });
+    }
+
+    const upcContext = upcCode ? `Código UPC / Barcode: ${upcCode}.\n` : '';
+
+    parts.push({
+      text: `Eres un catalogador e-commerce inteligente y de alta velocidad (<10s).
+${upcContext}
+Dispones de:
+1. Audio de voz del operador describiendo el producto (MÁXIMA PRIORIDAD).
+2. Fotografía del producto para validar visualmente marca, modelo, empaque, colores y etiquetas (si fue provista).
+3. Conocimiento exhaustivo de productos y marcas comerciales en internet.
+
+REGLAS DE GENERACIÓN RÁPIDA Y EXACTA:
+1. PRIORIDAD TOTAL AL AUDIO: Lo que expresa el operador en el audio es la fuente principal de verdad para el producto (color, material, talla, especificaciones, utilidades, estado).
+2. VALIDACIÓN CON IMAGEN E INTERNET: Usa la foto del producto y tu conocimiento de internet para afinar el nombre comercial exacto, la marca oficial y el modelo sin contradecir lo que el operador declaró en el audio.
+3. Transcribe con exactitud el audio en español en el campo "transcription".
+4. Genera un "title" comercial conciso, profesional y atractivo para tienda online (máximo 12 palabras, ej: 'Perfume Carolina Herrera 212 VIP Rosé Eau de Parfum 80ml' o 'Camisa Casual Stevens Algodón Manga Larga Azul Talla M').
+5. Genera una "description" detallada y profesional para catálogo web destacando las características clave mencionadas en el audio (material, acabado, color, utilidades o especificaciones).
+
+Responde ÚNICAMENTE con un objeto JSON válido con este formato:
+{
+  "transcription": "Texto exacto transcrito del audio",
+  "title": "Título comercial del producto",
+  "description": "Descripción detallada del producto..."
+}`
+    });
 
     const result = await executeWithRetry(async () => {
       const client = getGeminiClient();
       const response = await client.models.generateContent({
         model,
         contents: {
-          parts: [
-            {
-              inlineData: {
-                mimeType: mimeType,
-                data: cleanBase64,
-              },
-            },
-            {
-              text: `Analiza este audio de voz de un operador describiendo un producto y realiza lo siguiente:
-1. Transcribe exactamente el audio en español.
-2. Genera un TÍTULO conciso y profesional del producto (máximo 10 palabras).
-3. Genera una DESCRIPCIÓN DETALLADA del producto en español resumiendo las características básicas mencionadas en el audio (como color, marca, modelo, material, estado, utilidades o detalles expresados).
-
-Responde ÚNICAMENTE con un objeto JSON válido con este formato:
-{
-  "transcription": "Texto completo transcrito del audio",
-  "title": "Título del producto generado",
-  "description": "Descripción detallada del producto..."
-}`
-            },
-          ],
+          parts,
         },
         config: {
           responseMimeType: "application/json"

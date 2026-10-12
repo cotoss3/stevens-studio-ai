@@ -19,9 +19,10 @@ Este documento contiene la información histórica, de arquitectura y configurac
 La aplicación permite a los operadores de Stevens catalogar productos físicos de forma ágil siguiendo un flujo asistido por Inteligencia Artificial:
 1. **Identificación (UPC)**: Escaneo del código de barras del producto a través de la cámara trasera y extracción de los dígitos por el modelo Gemini 3.5 Flash.
 2. **Validación de Duplicados**: El código UPC extraído se valida contra la base de datos de Supabase. Si el producto ya fue catalogado, se bloquea la toma de fotografías para evitar duplicados.
-3. **Fotografía de Estudio**: Captura de la foto del producto, procesada por Gemini 2.5 Flash Image con iluminación de estudio e-commerce limpia y brillante, fondo blanco puro (#FFFFFF), y **estricta preservación de textos, marcas, costuras y patrones del producto original sin alterarlos**.
+3. **Fotografía de Estudio**: Captura de la foto del producto, procesada con iluminación de estudio e-commerce limpia y brillante en Full HD, fondo blanco puro (#FFFFFF), y **estricta preservación de textos, marcas, costuras y patrones del producto original sin alterarlos**.
 4. **Optimización Visual**: Un algoritmo en el cliente detecta el producto, lo centra perfectamente y lo escala a formato cuadrado exacto de 1000x1000px, ocupando al menos el 80% (85% de su dimensión dominante) sobre fondo blanco puro (#FFFFFF).
-5. **Publicación**: La imagen final optimizada se almacena en Supabase Storage (bucket `product-photos`) con el nombre `{UPC}.jpg` y se registra en la tabla `products`.
+5. **Audio y Ficha Técnica Inteligente (<10s)**: El operador graba una nota de voz corta. La IA (Gemini 3.5 Flash) **prioriza lo que dice el audio** y valida conjuntamente con la fotografía del producto, el UPC y su catálogo de internet para generar un título y descripción comercial exacta en menos de 10 segundos.
+6. **Publicación**: La imagen final optimizada se almacena en Supabase Storage (bucket `product-photos`) con el nombre `{UPC}.jpg` y se registra en la tabla `products` junto con el título, descripción y transcripción de voz.
 
 ---
 
