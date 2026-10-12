@@ -115,8 +115,12 @@ export async function processAndResizeProductImage(
         finalCtx.fillStyle = '#FFFFFF';
         finalCtx.fillRect(0, 0, targetSize, targetSize);
 
-        // Step 4: Calculate scale factor so the dominant dimension occupies exactly 95% of targetSize
-        const targetProductDimension = targetSize * fillPercentage; // 1000 * 0.95 = 950px
+        // Enable high quality smoothing for Full HD crispness
+        finalCtx.imageSmoothingEnabled = true;
+        finalCtx.imageSmoothingQuality = 'high';
+
+        // Step 4: Calculate scale factor so the dominant dimension occupies at least 80% (default 85%) of targetSize
+        const targetProductDimension = targetSize * fillPercentage; // 1000 * 0.85 = 850px
         const maxProductDimension = Math.max(productWidth, productHeight);
         const scale = targetProductDimension / maxProductDimension;
 
@@ -140,8 +144,8 @@ export async function processAndResizeProductImage(
           scaledHeight
         );
 
-        // Export high-quality JPG image
-        const processedBase64 = finalCanvas.toDataURL('image/jpeg', 0.95);
+        // Export high-definition Full HD JPG image (98% quality)
+        const processedBase64 = finalCanvas.toDataURL('image/jpeg', 0.98);
         resolve(processedBase64);
       } catch (err) {
         reject(err);

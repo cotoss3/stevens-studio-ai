@@ -499,7 +499,7 @@ async function startServer() {
         return res.status(500).json({ error: "La API Key de Gemini no está configurada en el servidor. Por favor, asegúrese de agregarla en Settings > Secrets." });
       }
 
-      const model = 'gemini-2.5-flash-image';
+      const model = process.env.GEMINI_STUDIO_MODEL || 'gemini-3.1-flash-lite-image';
       const cleanBase64 = base64Image.split(',')[1] || base64Image;
 
       const resultUrl = await executeWithRetry(async () => {
@@ -515,7 +515,7 @@ async function startServer() {
                 },
               },
               {
-                text: "Convert this photo into a professional e-commerce studio catalog shot:\n1. Remove the background completely and replace with pure, seamless solid white (hex #FFFFFF).\n2. Center the product cleanly, occupying approximately 80% to 85% of the frame (height or dominant dimension), leaving clean balanced margins.\n3. Apply professional, crisp, bright, and even studio lighting across the entire product, removing all harsh shadows, glare, human hands/fingers, and background clutter.\n4. CRITICAL: PRESERVE EXACT FIDELITY. Do NOT alter, hallucinate, blur, or distort any printed text, typography, brand logos, fabric patterns, embroidery, stitching, or material textures on the product. The product details, colors, and patterns must remain 100% faithful to the original item.\n5. Output ONLY the resulting product image without any added external text, borders, or graphics.",
+                text: "Convert this photo into a Full HD, ultra-crisp professional e-commerce studio shot:\n1. Remove the background completely and replace with 100% pure, seamless solid white (hex #FFFFFF).\n2. Center the product cleanly, occupying approximately 80% to 85% of the frame (height or dominant dimension), leaving clean balanced margins.\n3. Apply professional, bright, high-definition studio lighting across the entire product, eliminating all harsh shadows, glare, human hands/fingers, and background clutter.\n4. CRITICAL: PRESERVE EXACT 100% FIDELITY. Do NOT alter, hallucinate, blur, smudge, or distort any printed text, typography, numbers, brand logos, fabric patterns, embroidery, stitching, or material textures on the product. Every letter, logo, pattern, and detail must remain razor-sharp and 100% identical to the original item in Full HD.\n5. Output ONLY the resulting high-resolution product image without any added external text, borders, or graphics.",
               },
             ],
           },
