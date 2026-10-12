@@ -147,3 +147,25 @@ Continuación del trabajo iniciado con Antigravity/Gemini.
 * El proyecto de Supabase actual es `wnuujseqnuouawacewgv` registrado bajo la cuenta / correo `fcontreras@datakorex.com`.
 * Respaldos de los archivos previos a la corrección de codificación en
   `_backup_utf8/`.
+
+---
+
+## Bitácora de cambios — 12/10/2026
+
+### Descarga de ZIP con Metadatos (UPC, Título y Descripción)
+* **API (`/api/admin/products`)**: Actualizados [server.ts](file:///c:/Users/fcontreras/Desktop/Vitales%20de%20Stevens/Foto%20Tienda/server.ts) y [api/index.ts](file:///c:/Users/fcontreras/Desktop/Vitales%20de%20Stevens/Foto%20Tienda/api/index.ts) para mapear y devolver las columnas `title`, `description` y `transcription` guardadas en Supabase.
+* **Empaquetado de ZIP**:
+  - **`productos.csv`**: Tabla consolidada en formato CSV con BOM UTF-8 (`\uFEFF`) para compatibilidad directa e inmediata con Microsoft Excel y hojas de cálculo (columnas: *UPC, Título, Descripción, Archivo Foto, Usuario, Fecha*).
+  - **`productos.txt`**: Catálogo consolidado formateado y legible para lectura rápida o bloc de notas.
+  - **`productos.json`**: Estructura JSON con el array completo de productos descargados.
+  - **Archivos individuales `{UPC}.txt`**: Cada foto va acompañada de su propio archivo de texto con su UPC, título y descripción.
+* **Interfaz de Administración**:
+  - En las tarjetas del catálogo se muestra el título y un extracto de la descripción.
+  - En la vista previa modal ("Ver") se añadieron el título y la descripción completa para lectura y copia ágil.
+
+### Resiliencia ante Errores 503 (Alta Demanda en Gemini)
+* **Reintentos automáticos**: `executeWithRetry` ahora captura errores transitorios `503` (*UNAVAILABLE / high demand*), `502`, `504` y `429` reintentando automáticamente con backoff exponencial.
+* **Cascada de modelos de respaldo**: En `/api/gemini/process-audio` y `/api/gemini/extract-upc`, si el modelo primario (`gemini-3.5-flash`) experimenta saturación momentánea, el servidor conmuta de inmediato a modelos alternativos (`gemini-2.5-flash` o `gemini-3.8-flash`) evitando bloquear al operador.
+* **UI**: Se agregó el botón interactivo **"Reintentar con IA"** en caso de fallos y **"Reanalizar"** para reprocesar el audio capturado con un solo clic.
+
+

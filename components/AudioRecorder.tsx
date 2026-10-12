@@ -257,12 +257,25 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
                 </span>
               </div>
 
-              <button
-                onClick={startRecording}
-                className="text-xs text-slate-400 hover:text-amber-400 flex items-center gap-1"
-              >
-                <RefreshCw size={12} /> Regrabar
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={startRecording}
+                  className="text-xs text-slate-400 hover:text-amber-400 flex items-center gap-1 cursor-pointer"
+                >
+                  <RefreshCw size={12} /> Regrabar
+                </button>
+                {audioBase64 && !isProcessing && (
+                  <button
+                    type="button"
+                    onClick={() => processAudioWithGemini(audioBase64, 'audio/webm')}
+                    className="text-xs text-amber-400 hover:text-amber-300 flex items-center gap-1 font-semibold ml-2 cursor-pointer"
+                    title="Volver a analizar este audio con IA"
+                  >
+                    <Sparkles size={12} /> Reanalizar
+                  </button>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -279,9 +292,22 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
 
       {/* MENSAJE DE ERROR */}
       {error && (
-        <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-2xl text-red-400 text-xs flex items-center gap-3">
-          <AlertCircle size={18} className="shrink-0" />
-          <span>{error}</span>
+        <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-2xl text-red-400 text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-md">
+          <div className="flex items-center gap-2">
+            <AlertCircle size={18} className="shrink-0 text-red-400" />
+            <span>{error}</span>
+          </div>
+          {audioBase64 && (
+            <button
+              type="button"
+              onClick={() => processAudioWithGemini(audioBase64, 'audio/webm')}
+              disabled={isProcessing}
+              className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-900 rounded-xl font-bold text-xs transition-colors shrink-0 flex items-center gap-1.5 shadow-md self-end sm:self-auto cursor-pointer"
+            >
+              <RefreshCw size={12} className={isProcessing ? 'animate-spin' : ''} />
+              Reintentar con IA
+            </button>
+          )}
         </div>
       )}
 

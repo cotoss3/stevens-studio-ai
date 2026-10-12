@@ -52,11 +52,11 @@ async function startServer() {
     return ai;
   }
 
-  // Helper that executes with exponential backoff for 429 Rate Limits / Quotas
+  // Helper that executes with exponential backoff for 429 Rate Limits / Quotas and 503 High Demand / UNAVAILABLE
   async function executeWithRetry<T>(
     fn: () => Promise<T>,
     maxAttempts = 4,
-    baseDelayMs = 2000
+    baseDelayMs = 1500
   ): Promise<T> {
     let attempt = 1;
     while (true) {
@@ -64,17 +64,24 @@ async function startServer() {
         return await fn();
       } catch (error: any) {
         const errorMsg = error.message || '';
-        const is429 = 
-          error.status === 429 ||
-          error.statusCode === 429 ||
+        const status = error.status || error.statusCode || error.code;
+        const isTransient = 
+          status === 429 ||
+          status === 503 ||
+          status === 502 ||
+          status === 504 ||
           errorMsg.includes('429') ||
+          errorMsg.includes('503') ||
           errorMsg.includes('RESOURCE_EXHAUSTED') ||
+          errorMsg.includes('UNAVAILABLE') ||
           errorMsg.toLowerCase().includes('too many requests') ||
-          errorMsg.toLowerCase().includes('quota');
+          errorMsg.toLowerCase().includes('quota') ||
+          errorMsg.toLowerCase().includes('high demand') ||
+          errorMsg.toLowerCase().includes('temporarily');
 
-        if (is429 && attempt < maxAttempts) {
-          const delay = baseDelayMs * Math.pow(2, attempt - 1);
-          console.warn(`[429 Quota Exceeded] Retrying attempt ${attempt}/${maxAttempts} in ${delay}ms...`);
+        if (isTransient && attempt < maxAttempts) {
+          const delay = baseDelayMs * Math.pow(2, attempt - 1) + Math.random() * 500;
+          console.warn(`[Transient ${status || 'Error'}] Retrying attempt ${attempt}/${maxAttempts} in ${Math.round(delay)}ms...`);
           await new Promise((resolve) => setTimeout(resolve, delay));
           attempt++;
         } else {
@@ -328,7 +335,10 @@ async function startServer() {
         imageUrl: p.image_url,
         fileId: p.file_path, // Storage file path
         userName: p.user_name,
-        createdAt: p.created_at
+        createdAt: p.created_at,
+        title: p.title || '',
+        description: p.description || '',
+        transcription: p.transcription || ''
       }));
       return res.json(mappedProducts);
     } catch (error: any) {
@@ -451,34 +461,58 @@ async function startServer() {
         return res.status(500).json({ error: "La API Key de Gemini no está configurada en el servidor. Por favor, asegúrese de agregarla en Settings > Secrets." });
       }
 
-      const model = 'gemini-3.5-flash';
+      const candidateModels = [
+        process.env.GEMINI_UPC_MODEL || 'gemini-3.5-flash',
+        'gemini-2.5-flash',
+        'gemini-3.8-flash'
+      ];
+      const uniqueModels = Array.from(new Set(candidateModels));
       const cleanBase64 = base64Image.split(',')[1] || base64Image;
 
-      const result = await executeWithRetry(async () => {
-        const client = getGeminiClient();
-        const response = await client.models.generateContent({
-          model,
-          contents: {
-            parts: [
-              {
-                inlineData: {
-                  mimeType: 'image/jpeg',
-                  data: cleanBase64,
-                },
-              },
-              {
-                text: "Extract the barcode UPC number (numeric string) from this image. Only return the digits of the code. If multiple codes are found, return the most prominent one. If no code is found, reply with 'NOT_FOUND'.",
-              },
-            ],
-          },
-        });
+      let result: string | null = null;
+      let lastError: any = null;
 
-        const textOutput = response.text?.trim() || 'NOT_FOUND';
-        if (textOutput === 'NOT_FOUND') {
-          throw new Error("No se detectó el código UPC. Intenta de nuevo o digítalo.");
+      for (const currentModel of uniqueModels) {
+        try {
+          result = await executeWithRetry(async () => {
+            const client = getGeminiClient();
+            const response = await client.models.generateContent({
+              model: currentModel,
+              contents: {
+                parts: [
+                  {
+                    inlineData: {
+                      mimeType: 'image/jpeg',
+                      data: cleanBase64,
+                    },
+                  },
+                  {
+                    text: "Extract the barcode UPC number (numeric string) from this image. Only return the digits of the code. If multiple codes are found, return the most prominent one. If no code is found, reply with 'NOT_FOUND'.",
+                  },
+                ],
+              },
+            });
+
+            const textOutput = response.text?.trim() || 'NOT_FOUND';
+            if (textOutput === 'NOT_FOUND') {
+              throw new Error("No se detectó el código UPC. Intenta de nuevo o digítalo.");
+            }
+            return textOutput.replace(/[^0-9A-Z]/gi, '');
+          }, 3, 1200);
+
+          if (result) break;
+        } catch (modelErr: any) {
+          console.warn(`[extract-upc] Modelo ${currentModel} falló:`, modelErr.message || modelErr);
+          lastError = modelErr;
+          if (modelErr.message && modelErr.message.includes("No se detectó el código UPC")) {
+            throw modelErr; // Si la imagen simplemente no tiene código, no reintentar otros modelos
+          }
         }
-        return textOutput.replace(/[^0-9A-Z]/gi, '');
-      });
+      }
+
+      if (!result) {
+        throw lastError || new Error("No se pudo extraer el UPC.");
+      }
 
       return res.json({ upc: result });
     } catch (error: any) {
@@ -552,7 +586,12 @@ async function startServer() {
         return res.status(500).json({ error: "GEMINI_API_KEY no está configurada en las variables de entorno del servidor." });
       }
 
-      const model = 'gemini-3.5-flash';
+      const candidateModels = [
+        process.env.GEMINI_AUDIO_MODEL || 'gemini-3.5-flash',
+        'gemini-2.5-flash',
+        'gemini-3.8-flash'
+      ];
+      const uniqueModels = Array.from(new Set(candidateModels));
       const cleanAudioBase64 = base64Audio.split(',')[1] || base64Audio;
 
       const parts: any[] = [
@@ -599,34 +638,50 @@ Responde ÚNICAMENTE con un objeto JSON válido con este formato:
 }`
       });
 
-      const result = await executeWithRetry(async () => {
-        const client = getGeminiClient();
-        const response = await client.models.generateContent({
-          model,
-          contents: {
-            parts,
-          },
-          config: {
-            responseMimeType: "application/json"
-          }
-        });
+      let result: any = null;
+      let lastError: any = null;
 
-        const textOutput = response.text?.trim() || '';
+      for (const currentModel of uniqueModels) {
         try {
-          const parsed = JSON.parse(textOutput);
-          return {
-            transcription: parsed.transcription || textOutput,
-            title: parsed.title || 'Producto Catalogado',
-            description: parsed.description || parsed.transcription || ''
-          };
-        } catch (parseErr) {
-          return {
-            transcription: textOutput,
-            title: 'Producto Catalogado',
-            description: textOutput
-          };
+          result = await executeWithRetry(async () => {
+            const client = getGeminiClient();
+            const response = await client.models.generateContent({
+              model: currentModel,
+              contents: {
+                parts,
+              },
+              config: {
+                responseMimeType: "application/json"
+              }
+            });
+
+            const textOutput = response.text?.trim() || '';
+            try {
+              const parsed = JSON.parse(textOutput);
+              return {
+                transcription: parsed.transcription || textOutput,
+                title: parsed.title || 'Producto Catalogado',
+                description: parsed.description || parsed.transcription || ''
+              };
+            } catch (parseErr) {
+              return {
+                transcription: textOutput,
+                title: 'Producto Catalogado',
+                description: textOutput
+              };
+            }
+          }, 3, 1200);
+
+          if (result) break;
+        } catch (modelErr: any) {
+          console.warn(`[process-audio] Modelo ${currentModel} falló:`, modelErr.message || modelErr);
+          lastError = modelErr;
         }
-      });
+      }
+
+      if (!result) {
+        throw lastError || new Error("No se pudo procesar el audio con ningún modelo de IA.");
+      }
 
       return res.json(result);
     } catch (error: any) {

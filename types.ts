@@ -27,3 +27,15 @@ export interface AppState {
   error: string | null;
   user: User | null;
 }
+
+export interface Product {
+  $id: string;
+  upc: string;
+  imageUrl: string;
+  fileId: string;
+  userName?: string;
+  createdAt?: string;
+  title?: string | null;
+  description?: string | null;
+  transcription?: string | null;
+}

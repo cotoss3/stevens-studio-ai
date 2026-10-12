@@ -614,7 +614,7 @@ const App: React.FC = () => {
     };
   }, [previewIndex, previewList.length]);
 
-  /** Descarga en un solo .zip la lista de fotos que reciba. */
+  /** Descarga en un solo .zip la lista de fotos junto con la info de UPC, título y descripción. */
   const downloadPhotosAsZip = async (photos: any[], zipLabel: string) => {
     if (photos.length === 0) return;
 
@@ -626,6 +626,14 @@ const App: React.FC = () => {
       const entries: ZipEntry[] = [];
       const used = new Set<string>();
       const failed: string[] = [];
+      const downloadedProducts: Array<{
+        upc: string;
+        title: string;
+        description: string;
+        fileName: string;
+        userName: string;
+        createdAt: string;
+      }> = [];
 
       for (let i = 0; i < photos.length; i++) {
         const photo = photos[i];
@@ -635,10 +643,42 @@ const App: React.FC = () => {
           if (!response.ok) throw new Error(`HTTP ${response.status}`);
           const buffer = await response.arrayBuffer();
           const ext = (photo.imageUrl || '').toLowerCase().includes('.png') ? 'png' : 'jpg';
+          const upcClean = photo.upc || 'sin-upc';
+          const fileName = uniqueName(`${upcClean}.${ext}`, used);
+          const photoDate = photo.createdAt ? new Date(photo.createdAt) : new Date();
+
+          // 1. Imagen del producto
           entries.push({
-            name: uniqueName(`${photo.upc || 'sin-upc'}.${ext}`, used),
+            name: fileName,
             data: new Uint8Array(buffer),
-            date: photo.createdAt ? new Date(photo.createdAt) : new Date(),
+            date: photoDate,
+          });
+
+          // 2. Archivo de texto individual (.txt) con la info del producto
+          const baseName = fileName.lastIndexOf('.') > 0 ? fileName.slice(0, fileName.lastIndexOf('.')) : fileName;
+          const txtFileName = uniqueName(`${baseName}.txt`, used);
+          const individualTxt = [
+            `UPC: ${photo.upc || ''}`,
+            `Título: ${photo.title || 'Sin título'}`,
+            `Descripción: ${photo.description || 'Sin descripción'}`,
+            `Archivo de foto: ${fileName}`,
+            `Usuario: ${photo.userName || 'Anónimo'}`,
+            `Fecha: ${photo.createdAt ? new Date(photo.createdAt).toLocaleString() : ''}`
+          ].join('\r\n');
+
+          entries.push({
+            name: txtFileName,
+            data: new TextEncoder().encode(individualTxt),
+            date: photoDate,
+          });
+
+          downloadedProducts.push({
+            upc: photo.upc || '',
+            title: photo.title || '',
+            description: photo.description || '',
+            fileName: fileName,
+            userName: photo.userName || 'Anónimo',
+            createdAt: photo.createdAt ? new Date(photo.createdAt).toLocaleString() : ''
           });
         } catch {
           failed.push(photo.upc || photo.$id);
@@ -646,6 +686,64 @@ const App: React.FC = () => {
       }
 
       if (entries.length === 0) throw new Error("No se pudo descargar ninguna foto.");
+
+      // 3. Archivo CSV consolidado (con UTF-8 BOM para apertura perfecta en Excel)
+      const escapeCsv = (val: any) => {
+        if (val === null || val === undefined) return '""';
+        const str = String(val).replace(/"/g, '""');
+        return `"${str}"`;
+      };
+
+      const csvHeader = '\uFEFF"UPC","Título","Descripción","Archivo Foto","Usuario","Fecha"\r\n';
+      const csvRows = downloadedProducts.map(p =>
+        [
+          escapeCsv(p.upc),
+          escapeCsv(p.title),
+          escapeCsv(p.description),
+          escapeCsv(p.fileName),
+          escapeCsv(p.userName),
+          escapeCsv(p.createdAt)
+        ].join(',')
+      ).join('\r\n');
+
+      entries.push({
+        name: uniqueName('productos.csv', used),
+        data: new TextEncoder().encode(csvHeader + csvRows),
+        date: new Date(),
+      });
+
+      // 4. Archivo resumen de texto productos.txt
+      const txtSummary = [
+        '================================================================================',
+        'CATÁLOGO DE PRODUCTOS - STEVENS STUDIO',
+        `Fecha de descarga: ${new Date().toLocaleString()}`,
+        `Total de productos: ${downloadedProducts.length}`,
+        '================================================================================\r\n',
+        ...downloadedProducts.map((p, idx) => [
+          `[${idx + 1}]`,
+          `UPC: ${p.upc}`,
+          `Título: ${p.title || 'Sin título'}`,
+          `Descripción: ${p.description || 'Sin descripción'}`,
+          `Archivo de imagen: ${p.fileName}`,
+          `Usuario: ${p.userName}`,
+          `Fecha de registro: ${p.createdAt}`,
+          '--------------------------------------------------------------------------------'
+        ].join('\r\n'))
+      ].join('\r\n');
+
+      entries.push({
+        name: uniqueName('productos.txt', used),
+        data: new TextEncoder().encode(txtSummary),
+        date: new Date(),
+      });
+
+      // 5. Archivo estructurado JSON productos.json
+      const jsonContent = JSON.stringify(downloadedProducts, null, 2);
+      entries.push({
+        name: uniqueName('productos.json', used),
+        data: new TextEncoder().encode(jsonContent),
+        date: new Date(),
+      });
 
       setZipProgress('Comprimiendo ZIP...');
       const blob = createZip(entries);
@@ -661,8 +759,8 @@ const App: React.FC = () => {
 
       setAdminSuccessMsg(
         failed.length === 0
-          ? `ZIP generado con ${entries.length} fotos.`
-          : `ZIP generado con ${entries.length} fotos. No se pudieron descargar ${failed.length}: ${failed.slice(0, 5).join(', ')}${failed.length > 5 ? '...' : ''}`
+          ? `ZIP generado con ${downloadedProducts.length} fotos e información completa (Excel CSV, TXT y JSON).`
+          : `ZIP generado con ${downloadedProducts.length} fotos. No se pudieron descargar ${failed.length}: ${failed.slice(0, 5).join(', ')}${failed.length > 5 ? '...' : ''}`
       );
     } catch (err: any) {
       setAdminErrorMsg("Error al generar el ZIP: " + err.message);
@@ -1159,7 +1257,17 @@ const App: React.FC = () => {
                           </div>
                           <div className="p-4">
                             <p className="text-sm font-mono font-black text-slate-800">{photo.upc}</p>
-                            <p className="text-[9px] font-bold text-slate-500 uppercase tracking-tight mt-1">
+                            {photo.title && (
+                              <p className="text-xs font-semibold text-slate-700 truncate mt-1" title={photo.title}>
+                                {photo.title}
+                              </p>
+                            )}
+                            {photo.description && (
+                              <p className="text-[10px] text-slate-500 line-clamp-2 mt-0.5" title={photo.description}>
+                                {photo.description}
+                              </p>
+                            )}
+                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tight mt-1.5">
                               {photo.userName || 'Anónimo'} · {new Date(photo.createdAt || '').toLocaleDateString()}
                             </p>
                             <div className="flex gap-2 mt-3">
@@ -1412,8 +1520,13 @@ const App: React.FC = () => {
               {/* Encabezado */}
               <div className="flex items-center justify-between gap-4 px-5 py-3 border-b border-white/60 bg-white/60">
                 <div className="min-w-0">
-                  <p className="text-sm font-mono font-black text-slate-800 truncate">{previewPhoto.upc}</p>
-                  <p className="text-[9px] font-bold text-slate-500 uppercase tracking-tight">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-mono font-black text-slate-800 truncate">{previewPhoto.upc}</p>
+                    {previewPhoto.title && (
+                      <span className="text-xs font-bold text-slate-700 truncate">· {previewPhoto.title}</span>
+                    )}
+                  </div>
+                  <p className="text-[9px] font-bold text-slate-500 uppercase tracking-tight mt-0.5">
                     {previewPhoto.userName || 'Anónimo'} · {new Date(previewPhoto.createdAt || '').toLocaleDateString()}
                     {previewList.length > 1 && ` · ${(previewIndex ?? 0) + 1} de ${previewList.length}`}
                   </p>
@@ -1433,7 +1546,7 @@ const App: React.FC = () => {
                 <img
                   src={previewPhoto.imageUrl}
                   alt={previewPhoto.upc}
-                  className="max-w-full max-h-[68vh] object-contain"
+                  className="max-w-full max-h-[64vh] object-contain"
                 />
 
                 {previewList.length > 1 && (
@@ -1457,6 +1570,22 @@ const App: React.FC = () => {
                   </>
                 )}
               </div>
+
+              {/* Ficha técnica: Título y Descripción */}
+              {(previewPhoto.title || previewPhoto.description) && (
+                <div className="px-5 py-3 bg-slate-50/90 border-t border-slate-200/70 max-h-36 overflow-y-auto">
+                  {previewPhoto.title && (
+                    <p className="text-xs font-bold text-slate-900 mb-1">
+                      {previewPhoto.title}
+                    </p>
+                  )}
+                  {previewPhoto.description && (
+                    <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-line">
+                      {previewPhoto.description}
+                    </p>
+                  )}
+                </div>
+              )}
 
               {/* Acciones */}
               <div className="flex gap-2 px-5 py-3 border-t border-white/60 bg-white/60">
