@@ -13,17 +13,33 @@ const Camera: React.FC<CameraProps> = ({ onCapture, label, mode = 'product' }) =
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [stream, setStream] = useState<MediaStream | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
   const [showGrid, setShowGrid] = useState<boolean>(true);
   const [isFlashing, setIsFlashing] = useState<boolean>(false);
 
+  const stopCamera = useCallback(() => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => {
+        try {
+          track.stop();
+        } catch (e) {
+          console.warn("Error stopping track:", e);
+        }
+      });
+      streamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    setStream(null);
+  }, []);
+
   const startCamera = useCallback(async (facing: 'environment' | 'user' = facingMode) => {
     try {
       setError(null);
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-      }
+      stopCamera();
       const newStream = await navigator.mediaDevices.getUserMedia({ 
         video: { 
           facingMode: facing,
@@ -32,6 +48,7 @@ const Camera: React.FC<CameraProps> = ({ onCapture, label, mode = 'product' }) =
         },
         audio: false 
       });
+      streamRef.current = newStream;
       setStream(newStream);
       if (videoRef.current) {
         videoRef.current.srcObject = newStream;
@@ -40,17 +57,14 @@ const Camera: React.FC<CameraProps> = ({ onCapture, label, mode = 'product' }) =
       console.error("Error accessing camera:", err);
       setError("No se pudo acceder a la cámara. Revisa los permisos o sube una imagen directamente.");
     }
-  }, [facingMode, stream]);
+  }, [facingMode, stopCamera]);
 
   useEffect(() => {
     startCamera(facingMode);
     return () => {
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-      }
+      stopCamera();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [facingMode]);
+  }, [facingMode, startCamera, stopCamera]);
 
   const toggleCameraFacing = () => {
     const nextFacing = facingMode === 'environment' ? 'user' : 'environment';
@@ -71,6 +85,7 @@ const Camera: React.FC<CameraProps> = ({ onCapture, label, mode = 'product' }) =
       if (ctx) {
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         const dataUrl = canvas.toDataURL('image/jpeg', 0.90);
+        stopCamera();
         onCapture(dataUrl);
       }
     }
@@ -83,6 +98,7 @@ const Camera: React.FC<CameraProps> = ({ onCapture, label, mode = 'product' }) =
     const reader = new FileReader();
     reader.onload = (event) => {
       if (event.target?.result) {
+        stopCamera();
         onCapture(event.target.result as string);
       }
     };

@@ -39,16 +39,71 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
   const [transcription, setTranscription] = useState(initialTranscription || '');
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Liberar el microfono si el usuario navega a otro paso mientras graba o al desmontar
+  React.useEffect(() => {
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        try { mediaRecorderRef.current.stop(); } catch {}
+      }
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => {
+          try { track.stop(); } catch {}
+        });
+        streamRef.current = null;
+      }
+    };
+  }, []);
+
+  const compressImageForAI = async (dataUrl: string, maxDim = 400, quality = 0.65): Promise<string> => {
+    return new Promise((resolve) => {
+      try {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          if (width > height) {
+            if (width > maxDim) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            }
+          } else {
+            if (height > maxDim) {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            resolve(canvas.toDataURL('image/jpeg', quality));
+          } else {
+            resolve(dataUrl);
+          }
+        };
+        img.onerror = () => resolve(dataUrl);
+        img.src = dataUrl;
+      } catch {
+        resolve(dataUrl);
+      }
+    });
+  };
 
   const startRecording = async () => {
     try {
       setError(null);
       audioChunksRef.current = [];
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
       
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
@@ -60,6 +115,17 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
       };
 
       mediaRecorder.onstop = async () => {
+        // Detener microfono en el instante en que termina la grabacion
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach(track => {
+            try { track.stop(); } catch {}
+          });
+          streamRef.current = null;
+        }
+        stream.getTracks().forEach(track => {
+          try { track.stop(); } catch {}
+        });
+
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
         const url = URL.createObjectURL(audioBlob);
         setAudioUrl(url);
@@ -72,9 +138,6 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
           setAudioBase64(base64Data);
           await processAudioWithGemini(base64Data, 'audio/webm');
         };
-
-        // Stop audio tracks
-        stream.getTracks().forEach(track => track.stop());
       };
 
       mediaRecorder.start();
@@ -123,10 +186,16 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
     setIsProcessing(true);
     setError(null);
     try {
+      // Optimizacion: reducir tamano de la imagen de apoyo para acelerar el envio de red
+      let optimizedImg = productImage;
+      if (productImage && productImage.startsWith('data:image')) {
+        optimizedImg = await compressImageForAI(productImage, 400, 0.65);
+      }
+
       const result = await geminiService.processAudio(
         base64AudioData,
         mime,
-        productImage,
+        optimizedImg,
         upcCode
       );
       setTitle(result.title);

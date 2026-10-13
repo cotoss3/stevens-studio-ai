@@ -564,8 +564,8 @@ app.post("/api/gemini/process-audio", async (req, res) => {
     }
 
     const candidateModels = [
-      process.env.GEMINI_AUDIO_MODEL || 'gemini-3.5-flash',
-      'gemini-3.5-flash-lite',
+      process.env.GEMINI_AUDIO_MODEL || 'gemini-3.5-flash-lite',
+      'gemini-3.5-flash',
       'gemini-flash-latest',
       'gemini-3.8-flash'
     ];
@@ -591,28 +591,25 @@ app.post("/api/gemini/process-audio", async (req, res) => {
       });
     }
 
-    const upcContext = upcCode ? `Código UPC / Barcode: ${upcCode}.\n` : '';
+    const upcContext = upcCode ? `Código UPC: ${upcCode}.\n` : '';
 
     parts.push({
-      text: `Eres un catalogador e-commerce inteligente y de alta velocidad (<10s).
+      text: `Actúa como catalogador e-commerce ultra-rápido (<3s).
 ${upcContext}
-Dispones de:
-1. Audio de voz del operador describiendo el producto (MÁXIMA PRIORIDAD).
-2. Fotografía del producto para validar visualmente marca, modelo, empaque, colores y etiquetas (si fue provista).
-3. Conocimiento exhaustivo de productos y marcas comerciales en internet.
+FUENTES:
+1. Audio del operador (MÁXIMA PRIORIDAD para detalles, color, material, talla y uso).
+2. Foto del producto (para validar marca oficial y empaque si está presente).
 
-REGLAS DE GENERACIÓN RÁPIDA Y EXACTA:
-1. PRIORIDAD TOTAL AL AUDIO: Lo que expresa el operador en el audio es la fuente principal de verdad para el producto (color, material, talla, especificaciones, utilidades, estado).
-2. VALIDACIÓN CON IMAGEN E INTERNET: Usa la foto del producto y tu conocimiento de internet para afinar el nombre comercial exacto, la marca oficial y el modelo sin contradecir lo que el operador declaró en el audio.
-3. Transcribe con exactitud el audio en español en el campo "transcription".
-4. Genera un "title" comercial conciso, profesional y atractivo para tienda online (máximo 12 palabras, ej: 'Perfume Carolina Herrera 212 VIP Rosé Eau de Parfum 80ml' o 'Camisa Casual Stevens Algodón Manga Larga Azul Talla M').
-5. Genera una "description" detallada y profesional para catálogo web destacando las características clave mencionadas en el audio (material, acabado, color, utilidades o especificaciones).
+INSTRUCCIONES:
+1. Transcribe en "transcription" fielmente lo dicho por el operador.
+2. Genera en "title" un título comercial conciso y atractivo (máximo 12 palabras).
+3. Genera en "description" una descripción profesional para tienda web con los atributos mencionados.
 
-Responde ÚNICAMENTE con un objeto JSON válido con este formato:
+Responde ÚNICAMENTE un JSON válido con este formato:
 {
-  "transcription": "Texto exacto transcrito del audio",
-  "title": "Título comercial del producto",
-  "description": "Descripción detallada del producto..."
+  "transcription": "...",
+  "title": "...",
+  "description": "..."
 }`
     });
 
@@ -629,7 +626,9 @@ Responde ÚNICAMENTE con un objeto JSON válido con este formato:
               parts,
             },
             config: {
-              responseMimeType: "application/json"
+              responseMimeType: "application/json",
+              maxOutputTokens: 500,
+              temperature: 0.2
             }
           });
 
@@ -648,7 +647,7 @@ Responde ÚNICAMENTE con un objeto JSON válido con este formato:
               description: textOutput
             };
           }
-        }, 3, 1200);
+        }, 2, 800);
 
         if (result) break;
       } catch (modelErr: any) {
