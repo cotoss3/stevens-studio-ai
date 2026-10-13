@@ -25,6 +25,7 @@ import {
   Calendar,
   ChevronLeft,
   ChevronRight,
+  Pencil,
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { AppStep, AppState, User } from './types';
@@ -127,6 +128,13 @@ const App: React.FC = () => {
   const [newUserPassword, setNewUserPassword] = useState('');
   const [newUserName, setNewUserName] = useState('');
   const [newUserRole, setNewUserRole] = useState<'admin' | 'user'>('user');
+
+  // States for Edit Collaborator modal
+  const [editingUser, setEditingUser] = useState<any | null>(null);
+  const [editUserName, setEditUserName] = useState('');
+  const [editUserEmail, setEditUserEmail] = useState('');
+  const [editUserRole, setEditUserRole] = useState<'admin' | 'user'>('user');
+  const [editUserPassword, setEditUserPassword] = useState('');
 
 
 
@@ -264,14 +272,14 @@ const App: React.FC = () => {
     if (!state.productImage || !state.upcCode) return;
 
     setUploadStatus('uploading');
-    setProcessingMessage('SUBIENDO IMAGEN A SUPABASE STORAGE...');
+    setProcessingMessage('GUARDANDO FOTO DEL PRODUCTO...');
     setState(prev => ({ ...prev, isProcessing: true, error: null }));
 
     try {
       const file = base64ToFile(state.productImage, `${state.upcCode}.jpg`);
       const filePath = `${state.upcCode}_${Date.now()}.jpg`;
       
-      // Subir archivo al bucket de Supabase Storage
+      // Subir archivo al bucket de almacenamiento
       const { data: uploadRes, error: uploadErr } = await supabase.storage
         .from(DEFAULT_BUCKET_NAME)
         .upload(filePath, file, {
@@ -281,7 +289,7 @@ const App: React.FC = () => {
 
       if (uploadErr) throw uploadErr;
 
-      setProcessingMessage('REGISTRANDO PRODUCTO Y FICHA DE AUDIO EN SUPABASE...');
+      setProcessingMessage('REGISTRANDO PRODUCTO Y FICHA EN EL SISTEMA...');
       
       // Obtener URL pública de visualización
       const { data: { publicUrl } } = supabase.storage
@@ -569,6 +577,52 @@ const App: React.FC = () => {
       loadAdminData();
     } catch (err: any) {
       setAdminErrorMsg(err.message || "Error al eliminar usuario.");
+    } finally {
+      setIsAdminActionLoading(false);
+    }
+  };
+
+  const openEditUser = (usr: any) => {
+    setEditingUser(usr);
+    setEditUserName(usr.name || '');
+    setEditUserEmail(usr.email || '');
+    setEditUserRole((usr.role === 'admin' ? 'admin' : 'user'));
+    setEditUserPassword('');
+    setAdminErrorMsg(null);
+    setAdminSuccessMsg(null);
+  };
+
+  const handleUpdateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingUser) return;
+    if (!editUserName.trim() || !editUserEmail.trim()) {
+      setAdminErrorMsg("Nombre y correo son obligatorios.");
+      return;
+    }
+
+    setIsAdminActionLoading(true);
+    setAdminErrorMsg(null);
+    setAdminSuccessMsg(null);
+    try {
+      const res = await fetch('/api/admin/update-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: editingUser.userId,
+          name: editUserName.trim(),
+          email: editUserEmail.trim(),
+          role: editUserRole,
+          password: editUserPassword.trim() ? editUserPassword.trim() : undefined
+        })
+      }).then(r => r.json());
+
+      if (res.error) throw new Error(res.error);
+
+      setAdminSuccessMsg(`Perfil de ${editUserName} actualizado correctamente.`);
+      setEditingUser(null);
+      loadAdminData();
+    } catch (err: any) {
+      setAdminErrorMsg(err.message || "Error al actualizar perfil de colaborador.");
     } finally {
       setIsAdminActionLoading(false);
     }
@@ -1141,28 +1195,124 @@ const App: React.FC = () => {
                   ) : usersList.length === 0 ? (
                     <p className="text-slate-500 text-sm text-center py-8 font-bold">Sin registros aún.</p>
                   ) : (
-                    <div className="divide-y divide-slate-800">
+                    <div className="divide-y divide-slate-100">
                       {usersList.map((usr: any) => (
                         <div key={usr.$id} className="py-4 flex justify-between items-center first:pt-0 last:pb-0">
                           <div>
                             <p className="text-sm font-black text-slate-800">
                               {usr.name}
-                              <span className={`ml-2 text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${usr.role === 'admin' ? 'bg-amber-900/35 border border-amber-500/20 text-slate-900' : 'bg-slate-800 border border-slate-200 text-slate-500'}`}>{usr.role}</span>
+                              <span className={`ml-2 text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${usr.role === 'admin' ? 'bg-amber-100 border border-amber-300 text-amber-900 font-bold' : 'bg-slate-100 border border-slate-200 text-slate-600'}`}>{usr.role === 'admin' ? 'Administrador' : 'Operador'}</span>
                             </p>
                             <p className="text-[10px] font-bold text-slate-500 font-mono mt-0.5">{usr.email}</p>
                           </div>
-                          <button onClick={() => handleDeleteUser(usr.userId, usr.$id)}
-                            disabled={usr.userId === state.user?.id}
-                            className="p-2.5 bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-900/25 rounded-full transition-all disabled:opacity-30 disabled:pointer-events-none"
-                            title="Eliminar">
-                            <Trash2 size={14} />
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => openEditUser(usr)}
+                              className="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-full transition-all border border-slate-200"
+                              title="Editar Perfil del Colaborador"
+                            >
+                              <Pencil size={14} />
+                            </button>
+                            <button onClick={() => handleDeleteUser(usr.userId, usr.$id)}
+                              disabled={usr.userId === state.user?.id}
+                              className="p-2.5 bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-100 rounded-full transition-all disabled:opacity-30 disabled:pointer-events-none"
+                              title="Eliminar">
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>
                   )}
                 </div>
               </div>
+
+              {/* Modal para Editar Perfil del Colaborador */}
+              {editingUser && (
+                <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setEditingUser(null)}>
+                  <div className="glass-card border border-white/60 rounded-[28px] overflow-hidden w-full max-w-lg bg-white shadow-2xl p-6" onClick={e => e.stopPropagation()}>
+                    <div className="flex justify-between items-center mb-5 border-b border-slate-100 pb-3">
+                      <div>
+                        <h3 className="text-base font-black text-slate-900 uppercase tracking-tight">Editar Colaborador</h3>
+                        <p className="text-xs text-slate-500 font-medium">Actualiza el nombre, correo o rol del usuario</p>
+                      </div>
+                      <button
+                        onClick={() => setEditingUser(null)}
+                        className="p-2 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors"
+                      >
+                        <X size={18} />
+                      </button>
+                    </div>
+
+                    <form onSubmit={handleUpdateUser} className="space-y-4">
+                      <div>
+                        <label className="text-[10px] font-black text-slate-500 uppercase mb-1.5 block tracking-wider">Nombre Completo</label>
+                        <input
+                          type="text"
+                          value={editUserName}
+                          onChange={e => setEditUserName(e.target.value)}
+                          required
+                          className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:border-brand-gold outline-none text-slate-800"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-black text-slate-500 uppercase mb-1.5 block tracking-wider">Correo Electrónico</label>
+                        <input
+                          type="email"
+                          value={editUserEmail}
+                          onChange={e => setEditUserEmail(e.target.value)}
+                          required
+                          className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:border-brand-gold outline-none text-slate-800"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-black text-slate-500 uppercase mb-1.5 block tracking-wider">Rol de Acceso</label>
+                        <select
+                          value={editUserRole}
+                          onChange={e => setEditUserRole(e.target.value as 'admin' | 'user')}
+                          className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:border-brand-gold outline-none text-slate-800"
+                        >
+                          <option value="user">Operador (Toma fotos y cataloga)</option>
+                          <option value="admin">Administrador (Acceso completo a métricas y catálogo)</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-black text-slate-500 uppercase mb-1.5 block tracking-wider">
+                          Nueva Contraseña <span className="text-slate-400 font-normal lowercase">(opcional, deja en blanco para no cambiarla)</span>
+                        </label>
+                        <input
+                          type="password"
+                          value={editUserPassword}
+                          onChange={e => setEditUserPassword(e.target.value)}
+                          placeholder="Mínimo 8 caracteres"
+                          minLength={8}
+                          className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:border-brand-gold outline-none text-slate-800"
+                        />
+                      </div>
+
+                      <div className="flex gap-3 pt-4 border-t border-slate-100">
+                        <button
+                          type="button"
+                          onClick={() => setEditingUser(null)}
+                          className="flex-1 py-3 border border-slate-200 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-50 transition-colors uppercase tracking-wider"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={isAdminActionLoading}
+                          className="flex-1 py-3 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition-colors uppercase tracking-wider disabled:opacity-50"
+                        >
+                          {isAdminActionLoading ? 'Guardando...' : 'Guardar Cambios'}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -1965,7 +2115,7 @@ const App: React.FC = () => {
                   </div>
                   <div>
                     <h4 className="font-black text-emerald-400 text-xl uppercase tracking-tight font-display">¡Producto Publicado!</h4>
-                    <p className="text-slate-300 text-xs mt-1">La foto optimizada y la ficha descriptiva fueron registradas en Supabase.</p>
+                    <p className="text-slate-300 text-xs mt-1">La foto optimizada y la ficha descriptiva fueron registradas exitosamente.</p>
                   </div>
                   <button onClick={reset} className="px-8 py-4 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-2xl font-bold transition-all shadow-lg active:scale-95 uppercase text-xs tracking-widest mt-2">
                     Siguiente Producto
@@ -1975,8 +2125,8 @@ const App: React.FC = () => {
                 <>
                   <button onClick={saveToSupabase} disabled={uploadStatus === 'uploading'}
                     className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-black py-5 rounded-2xl flex items-center justify-center gap-3 shadow-xl shadow-amber-500/20 transition-all active:scale-95 disabled:opacity-50">
-                    <Cloud size={24} />
-                    <span className="text-base uppercase tracking-wider font-display">Guardar en Supabase</span>
+                    <Package size={24} />
+                    <span className="text-base uppercase tracking-wider font-display">Guardar Producto</span>
                   </button>
                   <div className="grid grid-cols-2 gap-4">
                     <button onClick={handleDownload} className="glass-panel border border-white/60 text-slate-900 hover:text-slate-900 font-bold py-3.5 rounded-xl flex items-center justify-center gap-2 uppercase text-[10px] tracking-widest hover:bg-slate-800/60 shadow-sm"><Download size={16} /> Descargar Imagen</button>

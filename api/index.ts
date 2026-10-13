@@ -197,6 +197,47 @@ app.post("/api/admin/delete-user", async (req, res) => {
   }
 });
 
+app.post("/api/admin/update-user", async (req, res) => {
+  try {
+    const { userId, name, email, role, password } = req.body;
+    if (!userId) {
+      return res.status(400).json({ error: "Falta userId" });
+    }
+
+    const supabase = getSupabaseAdmin();
+
+    // 1. Update Auth user if email, password or metadata changes
+    const authUpdatePayload: any = {};
+    if (email && email.trim()) authUpdatePayload.email = email.trim();
+    if (password && password.trim().length >= 8) authUpdatePayload.password = password.trim();
+    if (name && name.trim()) authUpdatePayload.user_metadata = { name: name.trim() };
+
+    if (Object.keys(authUpdatePayload).length > 0) {
+      const { error: authErr } = await supabase.auth.admin.updateUserById(userId, authUpdatePayload);
+      if (authErr) throw authErr;
+    }
+
+    // 2. Update Profile row in Supabase database
+    const profileUpdatePayload: any = {};
+    if (name && name.trim()) profileUpdatePayload.name = name.trim();
+    if (email && email.trim()) profileUpdatePayload.email = email.trim();
+    if (role && (role === 'admin' || role === 'user')) profileUpdatePayload.role = role;
+
+    if (Object.keys(profileUpdatePayload).length > 0) {
+      const { error: profileErr } = await supabase
+        .from('profiles')
+        .update(profileUpdatePayload)
+        .eq('id', userId);
+      if (profileErr) throw profileErr;
+    }
+
+    return res.json({ success: true });
+  } catch (error: any) {
+    console.error("Error updating user:", error);
+    return res.status(500).json({ error: error.message || "Error al actualizar perfil del colaborador" });
+  }
+});
+
 async function softDeleteProducts(supabase: any, docIds: string[]) {
   const { error } = await supabase
     .from('products')
