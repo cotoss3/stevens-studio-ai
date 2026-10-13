@@ -565,7 +565,8 @@ app.post("/api/gemini/process-audio", async (req, res) => {
 
     const candidateModels = [
       process.env.GEMINI_AUDIO_MODEL || 'gemini-3.5-flash',
-      'gemini-2.5-flash',
+      'gemini-3.5-flash-lite',
+      'gemini-flash-latest',
       'gemini-3.8-flash'
     ];
     const uniqueModels = Array.from(new Set(candidateModels));
@@ -657,13 +658,29 @@ Responde ÚNICAMENTE con un objeto JSON válido con este formato:
     }
 
     if (!result) {
-      throw lastError || new Error("No se pudo procesar el audio con ningún modelo de IA.");
+      let cleanMsg = lastError?.message || "No se pudo procesar el audio con IA.";
+      try {
+        const parsed = JSON.parse(cleanMsg);
+        if (parsed?.error?.message) cleanMsg = parsed.error.message;
+      } catch {}
+      if (/503|high demand|alta demanda|UNAVAILABLE/i.test(cleanMsg)) {
+        cleanMsg = "Alta demanda momentánea en los servidores de IA de Google. Puedes reintentar o llenar la ficha manualmente.";
+      }
+      return res.status(503).json({ error: cleanMsg });
     }
 
     return res.json(result);
   } catch (error: any) {
     console.error("Error in process-audio endpoint:", error);
-    return res.status(500).json({ error: error.message || "Error al procesar el audio con IA" });
+    let cleanMsg = error.message || "Error al procesar el audio con IA";
+    try {
+      const parsed = JSON.parse(cleanMsg);
+      if (parsed?.error?.message) cleanMsg = parsed.error.message;
+    } catch {}
+    if (/503|high demand|alta demanda|UNAVAILABLE/i.test(cleanMsg)) {
+      cleanMsg = "Alta demanda momentánea en los servidores de IA de Google. Puedes reintentar o llenar la ficha manualmente.";
+    }
+    return res.status(500).json({ error: cleanMsg });
   }
 });
 

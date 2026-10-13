@@ -134,7 +134,15 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
       setTranscription(result.transcription);
     } catch (err: any) {
       console.error("Error processing audio:", err);
-      setError(err.message || "Error al procesar el audio con IA. Puedes escribir los datos manualmente.");
+      let rawMsg = err.message || "Error al procesar el audio con IA. Puedes escribir los datos manualmente.";
+      try {
+        const parsed = JSON.parse(rawMsg);
+        if (parsed?.error?.message) rawMsg = parsed.error.message;
+      } catch {}
+      if (/503|high demand|alta demanda|UNAVAILABLE/i.test(rawMsg)) {
+        rawMsg = "Alta demanda momentánea en los servidores de IA de Google. Puedes pulsar 'Reintentar con IA' o completar la ficha manualmente.";
+      }
+      setError(rawMsg);
     } finally {
       setIsProcessing(false);
     }

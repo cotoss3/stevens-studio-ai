@@ -72,7 +72,12 @@ export class GeminiService {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || `Error del servidor (${response.status})`);
+      let msg = errorData.error || `Error del servidor (${response.status})`;
+      try {
+        const parsed = JSON.parse(msg);
+        if (parsed?.error?.message) msg = parsed.error.message;
+      } catch {}
+      throw new Error(msg);
     }
 
     return await response.json();

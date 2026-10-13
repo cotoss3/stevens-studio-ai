@@ -1785,7 +1785,7 @@ const App: React.FC = () => {
                   onClick={handleUseDirectPhoto}
                   className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 shadow transition-colors cursor-pointer"
                 >
-                  <CheckCircle2 size={13} /> Usar Foto Directa
+                  <CheckCircle size={13} /> Usar Foto Directa
                 </button>
               </div>
             )}
