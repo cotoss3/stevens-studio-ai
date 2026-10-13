@@ -2,6 +2,9 @@ import express from "express";
 import { GoogleGenAI } from "@google/genai";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
+// Configure Vercel serverless function max execution time
+export const maxDuration = 60;
+
 const app = express();
 app.use(express.json({ limit: '50mb' }));
 
@@ -451,9 +454,9 @@ app.post("/api/gemini/extract-upc", async (req, res) => {
     }
 
     const candidateModels = [
-      process.env.GEMINI_UPC_MODEL || 'gemini-3.5-flash',
-      'gemini-2.5-flash',
-      'gemini-3.8-flash'
+      process.env.GEMINI_UPC_MODEL || 'gemini-3.5-flash-lite',
+      'gemini-3.5-flash',
+      'gemini-flash-latest'
     ];
     const uniqueModels = Array.from(new Set(candidateModels));
     const cleanBase64 = base64Image.split(',')[1] || base64Image;
@@ -480,6 +483,10 @@ app.post("/api/gemini/extract-upc", async (req, res) => {
                 },
               ],
             },
+            config: {
+              maxOutputTokens: 50,
+              temperature: 0.1,
+            }
           });
 
           const textOutput = response.text?.trim() || 'NOT_FOUND';
@@ -487,7 +494,7 @@ app.post("/api/gemini/extract-upc", async (req, res) => {
             throw new Error("No se detectó el código UPC. Intenta de nuevo o digítalo.");
           }
           return textOutput.replace(/[^0-9A-Z]/gi, '');
-        }, 3, 1200);
+        }, 2, 800);
 
         if (result) break;
       } catch (modelErr: any) {
@@ -563,7 +570,7 @@ app.post("/api/gemini/transform-studio-shot", async (req, res) => {
             }
           }
           throw new Error("La IA no devolvió una imagen procesada.");
-        }, 3, 1500);
+        }, 2, 800);
 
         if (resultUrl) break;
       } catch (modelErr: any) {

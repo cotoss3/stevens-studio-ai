@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Package, X,
   Database, 
@@ -26,6 +26,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Pencil,
+  Keyboard,
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { AppStep, AppState, User } from './types';
@@ -220,22 +221,139 @@ const App: React.FC = () => {
 
 
 
+  // States for Manual UPC input modal and cancel controls
+  const [showManualUpcModal, setShowManualUpcModal] = useState(false);
+  const [manualUpcInput, setManualUpcInput] = useState('');
+  const [manualUpcError, setManualUpcError] = useState<string | null>(null);
+  const [isCheckingManualUpc, setIsCheckingManualUpc] = useState(false);
+  const upcAbortControllerRef = useRef<AbortController | null>(null);
+
   const copyOrigin = () => {
     navigator.clipboard.writeText(window.location.origin);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const compressBarcodeImage = async (dataUrl: string, maxDim = 800, quality = 0.82): Promise<string> => {
+    return new Promise((resolve) => {
+      try {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          if (width > height) {
+            if (width > maxDim) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            }
+          } else {
+            if (height > maxDim) {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            resolve(canvas.toDataURL('image/jpeg', quality));
+          } else {
+            resolve(dataUrl);
+          }
+        };
+        img.onerror = () => resolve(dataUrl);
+        img.src = dataUrl;
+      } catch {
+        resolve(dataUrl);
+      }
+    });
+  };
+
+  const handleCancelProcessing = () => {
+    if (upcAbortControllerRef.current) {
+      try { upcAbortControllerRef.current.abort(); } catch {}
+    }
+    setState(prev => ({ ...prev, isProcessing: false, error: null }));
+  };
+
+  const handleManualUpcSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const cleanCode = manualUpcInput.trim().replace(/[^0-9A-Za-z]/g, '');
+    if (!cleanCode || cleanCode.length < 3) {
+      setManualUpcError('Por favor ingresa un código UPC válido (al menos 3 dígitos).');
+      return;
+    }
+
+    setIsCheckingManualUpc(true);
+    setManualUpcError(null);
+
+    if (upcAbortControllerRef.current) {
+      try { upcAbortControllerRef.current.abort(); } catch {}
+    }
+
+    try {
+      const validateRes = await fetch(`/api/products/validate/${cleanCode}`).then(r => r.json());
+      if (validateRes.exists) {
+        setShowManualUpcModal(false);
+        setState(prev => ({
+          ...prev,
+          error: 'DUPLICATE_UPC:' + cleanCode,
+          isProcessing: false
+        }));
+        return;
+      }
+
+      setShowManualUpcModal(false);
+      setManualUpcInput('');
+      setState(prev => ({
+        ...prev,
+        upcCode: cleanCode,
+        step: AppStep.PRODUCT_PHOTO,
+        isProcessing: false,
+        error: null
+      }));
+    } catch (err: any) {
+      setManualUpcError(err.message || 'Error al validar el código UPC.');
+    } finally {
+      setIsCheckingManualUpc(false);
+    }
+  };
+
   const handleCaptureUPC = async (image: string) => {
+    if (upcAbortControllerRef.current) {
+      try { upcAbortControllerRef.current.abort(); } catch {}
+    }
+    const abortController = new AbortController();
+    upcAbortControllerRef.current = abortController;
+
     setProcessingMessage('IDENTIFICANDO PRODUCTO...');
     setState(prev => ({ ...prev, isProcessing: true, error: null, upcImage: image }));
+
+    // Abort after 10 seconds of analysis so operator is never trapped
+    const timeoutId = setTimeout(() => {
+      try {
+        abortController.abort(new Error('TIMEOUT'));
+      } catch {}
+    }, 10000);
+
     try {
-      const upc = await geminiService.extractUPC(image, (attempt, delayMs) => {
-        setProcessingMessage(`LÍMITE EXCEDIDO. REINTENTANDO (${attempt}/3) EN ${Math.round(delayMs / 1000)}s...`);
-      });
+      // Compress barcode image for fast upload and quick Gemini vision reading
+      const compressedImage = await compressBarcodeImage(image, 800, 0.82);
+
+      const upc = await geminiService.extractUPC(
+        compressedImage,
+        (attempt, delayMs) => {
+          setProcessingMessage(`REINTENTANDO LECTURA (${attempt}/2) EN ${Math.round(delayMs / 1000)}s...`);
+        },
+        abortController.signal
+      );
       
+      clearTimeout(timeoutId);
+
       setProcessingMessage('VALIDANDO UPC CON BASE DE DATOS...');
-      const validateRes = await fetch(`/api/products/validate/${upc}`).then(r => r.json());
+      const validateRes = await fetch(`/api/products/validate/${upc}`, { signal: abortController.signal }).then(r => r.json());
       if (validateRes.exists) {
         throw new Error('DUPLICATE_UPC:' + upc);
       }
@@ -247,11 +365,25 @@ const App: React.FC = () => {
         isProcessing: false
       }));
     } catch (err: any) {
+      clearTimeout(timeoutId);
+      if (abortController.signal.aborted) {
+        if (err?.name === 'AbortError' || err?.message === 'TIMEOUT' || abortController.signal.reason?.message === 'TIMEOUT') {
+          setState(prev => ({
+            ...prev,
+            error: "La lectura del código tomó más de 10s. Puedes escribir el código manualmente o reintentar con mejor luz.",
+            isProcessing: false
+          }));
+          return;
+        }
+        return;
+      }
       setState(prev => ({
         ...prev,
         error: err.message || "Error al leer el código.",
         isProcessing: false
       }));
+    } finally {
+      clearTimeout(timeoutId);
     }
   };
 
@@ -2014,17 +2146,131 @@ const App: React.FC = () => {
               </p>
             </div>
 
-            {/* Opcion de contingencia si la foto de estudio toma mas de 6 segundos */}
-            {state.step === AppStep.PRODUCT_PHOTO && lastProductRawImage && processingElapsed >= 6 && (
-              <button
-                type="button"
-                onClick={handleUseDirectPhoto}
-                className="mt-4 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center gap-2 animate-in fade-in duration-300 cursor-pointer"
-              >
-                <CheckCircle size={14} className="text-amber-400" />
-                ¿Tienes prisa? Usar foto directa sin esperar
-              </button>
-            )}
+            {/* Opciones de contingencia y control para el operador */}
+            <div className="mt-5 flex flex-col sm:flex-row items-center gap-2.5 animate-in fade-in duration-300">
+              {state.step === AppStep.SCAN_UPC && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (upcAbortControllerRef.current) {
+                        try { upcAbortControllerRef.current.abort(); } catch {}
+                      }
+                      setState(prev => ({ ...prev, isProcessing: false }));
+                      setManualUpcInput('');
+                      setManualUpcError(null);
+                      setShowManualUpcModal(true);
+                    }}
+                    className="w-full sm:w-auto px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <Keyboard size={15} className="text-amber-400" />
+                    Digitar UPC manualmente
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleCancelProcessing}
+                    className="w-full sm:w-auto px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-all border border-slate-300/70 flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <X size={14} className="text-slate-500" />
+                    Cancelar y reintentar foto
+                  </button>
+                </>
+              )}
+
+              {state.step === AppStep.PRODUCT_PHOTO && lastProductRawImage && processingElapsed >= 5 && (
+                <button
+                  type="button"
+                  onClick={handleUseDirectPhoto}
+                  className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center gap-2 animate-in fade-in duration-300 cursor-pointer"
+                >
+                  <CheckCircle size={14} className="text-amber-400" />
+                  ¿Tienes prisa? Usar foto directa sin esperar
+                </button>
+              )}
+
+              {state.step !== AppStep.SCAN_UPC && processingElapsed >= 8 && (
+                <button
+                  type="button"
+                  onClick={handleCancelProcessing}
+                  className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-semibold transition-all border border-slate-300/70 flex items-center gap-1.5 cursor-pointer"
+                >
+                  <X size={13} /> Cancelar proceso
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Modal para digitar UPC manualmente */}
+        {showManualUpcModal && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-white rounded-[32px] p-6 sm:p-8 max-w-sm w-full flex flex-col shadow-2xl animate-in zoom-in-95 duration-200 border border-slate-100">
+              <div className="flex items-center justify-between mb-4">
+                <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
+                  <Keyboard size={24} className="text-amber-600" />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowManualUpcModal(false)}
+                  className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition-colors"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <h3 className="text-xl font-black text-slate-900 font-display tracking-tight mb-1">
+                Ingresar UPC Manualmente
+              </h3>
+              <p className="text-xs text-slate-500 font-medium mb-5">
+                Escribe o pega los dígitos del código de barras del producto.
+              </p>
+
+              <form onSubmit={handleManualUpcSubmit} className="space-y-4">
+                <div>
+                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-wider block mb-1.5">
+                    Código de Barras / UPC
+                  </label>
+                  <input
+                    type="text"
+                    autoFocus
+                    value={manualUpcInput}
+                    onChange={(e) => setManualUpcInput(e.target.value)}
+                    placeholder="Ej. 7501031311309"
+                    className="w-full px-4 py-3.5 bg-slate-50 border-2 border-slate-200 focus:border-amber-500 focus:bg-white rounded-2xl text-slate-900 font-mono font-bold text-lg tracking-wider outline-none transition-all"
+                  />
+                  {manualUpcError && (
+                    <p className="mt-2 text-xs font-bold text-red-600 flex items-center gap-1">
+                      <AlertCircle size={14} className="shrink-0" /> {manualUpcError}
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex gap-2.5 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowManualUpcModal(false)}
+                    className="flex-1 py-3 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs uppercase tracking-wider rounded-xl transition-all"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isCheckingManualUpc || !manualUpcInput.trim()}
+                    className="flex-1 py-3 px-4 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    {isCheckingManualUpc ? (
+                      <>
+                        <Loader2 size={14} className="animate-spin text-amber-400" />
+                        Validando...
+                      </>
+                    ) : (
+                      'Continuar'
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         )}
 
@@ -2059,6 +2305,21 @@ const App: React.FC = () => {
                 <X size={16} />
               </button>
             </div>
+            {state.step === AppStep.SCAN_UPC && !state.isProcessing && (
+              <div className="flex flex-wrap gap-2 pt-2 border-t border-rose-200/60 justify-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setManualUpcInput('');
+                    setManualUpcError(null);
+                    setShowManualUpcModal(true);
+                  }}
+                  className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 shadow transition-colors cursor-pointer"
+                >
+                  <Keyboard size={13} className="text-amber-400" /> Escribir UPC manualmente
+                </button>
+              </div>
+            )}
             {state.step === AppStep.PRODUCT_PHOTO && lastProductRawImage && !state.isProcessing && (
               <div className="flex flex-wrap gap-2 pt-2 border-t border-rose-200/60 justify-end">
                 <button
@@ -2122,6 +2383,18 @@ const App: React.FC = () => {
               <p className="text-slate-500 font-medium text-xs mt-1">Apunta con la cámara al código de barras del producto</p>
             </div>
             <Camera onCapture={handleCaptureUPC} label="ESCÁNER UPC ACTIVO" mode="upc" />
+            <button
+              type="button"
+              onClick={() => {
+                setManualUpcInput('');
+                setManualUpcError(null);
+                setShowManualUpcModal(true);
+              }}
+              className="mt-6 flex items-center justify-center gap-2 text-xs font-bold text-slate-700 hover:text-slate-950 bg-white hover:bg-slate-50 border border-slate-200/90 hover:border-slate-300 px-5 py-3 rounded-2xl shadow-sm transition-all cursor-pointer"
+            >
+              <Keyboard size={16} className="text-amber-500" />
+              ¿Problemas con el código? Escribir UPC manualmente
+            </button>
           </div>
         )}
 
