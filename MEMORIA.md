@@ -168,4 +168,16 @@ Continuación del trabajo iniciado con Antigravity/Gemini.
 * **Cascada de modelos de respaldo**: En `/api/gemini/process-audio` y `/api/gemini/extract-upc`, si el modelo primario (`gemini-3.5-flash`) experimenta saturación momentánea, el servidor conmuta de inmediato a modelos alternativos (`gemini-2.5-flash` o `gemini-3.8-flash`) evitando bloquear al operador.
 * **UI**: Se agregó el botón interactivo **"Reintentar con IA"** en caso de fallos y **"Reanalizar"** para reprocesar el audio capturado con un solo clic.
 
+---
+
+## Bitácora de cambios — 13/10/2026
+
+### Resiliencia en Foto de Estudio (Paso 2) ante saturación 503
+* **Cascada de modelos para fotos (`/api/gemini/transform-studio-shot`)**: Actualizado en `server.ts` y `api/index.ts`. Si el modelo primario `gemini-3.1-flash-lite-image` entra en saturación de demanda, el servidor conmuta automáticamente a `gemini-2.5-flash-image` con reintentos exponenciales.
+* **Depuración de errores para el usuario**: Se limpiaron las respuestas de error en el backend y `geminiService.ts` para extraer el mensaje legible en lugar de volcar el JSON técnico (`{"error":{"code":503...}}`).
+* **Botones de contingencia en Paso 2**:
+  - **"Reintentar Estudio IA"**: Reintenta procesar la foto tomada sin tener que volver a enfocar ni disparar la cámara.
+  - **"Usar Foto Directa"**: Permite continuar inmediatamente optimizando, centrando y ajustando la foto capturada en canvas blanco cuadrado de 1000x1000px, asegurando que el operador nunca quede bloqueado si los servidores de Google sufren caídas globales.
+
+
 

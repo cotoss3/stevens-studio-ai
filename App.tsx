@@ -165,13 +165,16 @@ const App: React.FC = () => {
     }
   };
 
+  const [lastProductRawImage, setLastProductRawImage] = useState<string | null>(null);
+
   const handleCaptureProduct = async (image: string) => {
+    setLastProductRawImage(image);
     setProcessingMessage('GENERANDO FOTO E-COMMERCE (FONDO BLANCO)...');
     setState(prev => ({ ...prev, isProcessing: true, error: null }));
     
     try {
       const studioImage = await geminiService.transformToStudioShot(image, (attempt, delayMs) => {
-        setProcessingMessage(`LÍMITE EXCEDIDO. REINTENTANDO (${attempt}/3) EN ${Math.round(delayMs / 1000)}s...`);
+        setProcessingMessage(`REINTENTANDO CON IA (${attempt}/3) EN ${Math.round(delayMs / 1000)}s...`);
       });
       
       setProcessingMessage('CENTRANDO PRODUCTO (≥80%) Y AJUSTANDO A 1000x1000 px FONDO BLANCO...');
@@ -184,9 +187,42 @@ const App: React.FC = () => {
         isProcessing: false
       }));
     } catch (err: any) {
+      let rawMsg = err.message || "Reintenta.";
+      try {
+        const parsed = JSON.parse(rawMsg);
+        if (parsed?.error?.message) rawMsg = parsed.error.message;
+      } catch {}
+
+      let friendlyError = "Error en el estudio AI: " + rawMsg;
+      if (/503|high demand|alta demanda|UNAVAILABLE/i.test(rawMsg)) {
+        friendlyError = "El estudio de IA tiene alta demanda momentánea de Google. Puedes reintentar o usar la foto directamente.";
+      }
+
       setState(prev => ({
         ...prev,
-        error: "Error en el estudio AI: " + (err.message || "Reintenta."),
+        error: friendlyError,
+        isProcessing: false
+      }));
+    }
+  };
+
+  const handleUseDirectPhoto = async () => {
+    if (!lastProductRawImage) return;
+    setProcessingMessage('OPTIMIZANDO Y CENTRANDO FOTO A 1000x1000 px FONDO BLANCO...');
+    setState(prev => ({ ...prev, isProcessing: true, error: null }));
+    try {
+      const finalResizedImage = await processAndResizeProductImage(lastProductRawImage);
+      setState(prev => ({
+        ...prev,
+        productImage: finalResizedImage,
+        step: AppStep.RECORD_AUDIO,
+        isProcessing: false
+      }));
+    } catch {
+      setState(prev => ({
+        ...prev,
+        productImage: lastProductRawImage,
+        step: AppStep.RECORD_AUDIO,
         isProcessing: false
       }));
     }
@@ -206,6 +242,7 @@ const App: React.FC = () => {
       isProcessing: false,
       error: null
     }));
+    setLastProductRawImage(null);
     setUploadStatus('idle');
     setProcessingMessage('');
   };
@@ -1723,15 +1760,35 @@ const App: React.FC = () => {
             </div>
           </div>
         ) : state.error ? (
-          <div className="w-full mb-8 p-6 bg-rose-50 border border-rose-200 rounded-3xl flex gap-4 items-center text-rose-800 animate-in zoom-in duration-300 shadow-sm">
-            <AlertCircle size={32} className="shrink-0 text-rose-600" />
-            <div className="flex-1">
-              <p className="text-[10px] font-black uppercase mb-1 tracking-widest text-rose-600">Error</p>
-              <p className="text-sm font-bold leading-tight">{state.error}</p>
+          <div className="w-full mb-8 p-6 bg-rose-50 border border-rose-200 rounded-3xl flex flex-col gap-3 text-rose-800 animate-in zoom-in duration-300 shadow-sm">
+            <div className="flex gap-4 items-center">
+              <AlertCircle size={32} className="shrink-0 text-rose-600" />
+              <div className="flex-1">
+                <p className="text-[10px] font-black uppercase mb-1 tracking-widest text-rose-600">Aviso</p>
+                <p className="text-sm font-bold leading-tight">{state.error}</p>
+              </div>
+              <button onClick={() => setState(prev => ({ ...prev, error: null }))} className="glass-panel p-2 rounded-full border border-white/60 text-slate-700">
+                <X size={16} />
+              </button>
             </div>
-            <button onClick={() => setState(prev => ({ ...prev, error: null }))} className="glass-panel p-2 rounded-full border border-white/60 text-slate-700">
-              <X size={16} />
-            </button>
+            {state.step === AppStep.PRODUCT_PHOTO && lastProductRawImage && !state.isProcessing && (
+              <div className="flex flex-wrap gap-2 pt-2 border-t border-rose-200/60 justify-end">
+                <button
+                  type="button"
+                  onClick={() => handleCaptureProduct(lastProductRawImage)}
+                  className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl flex items-center gap-1.5 shadow transition-colors cursor-pointer"
+                >
+                  <RefreshCw size={13} /> Reintentar Estudio IA
+                </button>
+                <button
+                  type="button"
+                  onClick={handleUseDirectPhoto}
+                  className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 shadow transition-colors cursor-pointer"
+                >
+                  <CheckCircle2 size={13} /> Usar Foto Directa
+                </button>
+              </div>
+            )}
           </div>
         ) : null}
 

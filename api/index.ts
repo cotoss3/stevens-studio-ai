@@ -480,45 +480,75 @@ app.post("/api/gemini/transform-studio-shot", async (req, res) => {
       return res.status(500).json({ error: "GEMINI_API_KEY no está configurada en las variables de entorno." });
     }
 
-    const model = process.env.GEMINI_STUDIO_MODEL || 'gemini-3.1-flash-lite-image';
+    const candidateModels = [
+      process.env.GEMINI_STUDIO_MODEL || 'gemini-3.1-flash-lite-image',
+      'gemini-2.5-flash-image'
+    ];
+    const uniqueModels = Array.from(new Set(candidateModels));
     const cleanBase64 = base64Image.split(',')[1] || base64Image;
 
-    const resultUrl = await executeWithRetry(async () => {
-      const client = getGeminiClient();
-      const response = await client.models.generateContent({
-        model,
-        contents: {
-          parts: [
-            {
-              inlineData: {
-                mimeType: 'image/jpeg',
-                data: cleanBase64,
-              },
-            },
-            {
-              text: "Convert this photo into a Full HD, ultra-crisp professional e-commerce studio shot:\n1. Remove the background completely and replace with 100% pure, seamless solid white (hex #FFFFFF).\n2. Center the product cleanly, occupying approximately 80% to 85% of the frame (height or dominant dimension), leaving clean balanced margins.\n3. Apply professional, bright, high-definition studio lighting across the entire product, eliminating all harsh shadows, glare, human hands/fingers, and background clutter.\n4. CRITICAL: PRESERVE EXACT 100% FIDELITY. Do NOT alter, hallucinate, blur, smudge, or distort any printed text, typography, numbers, brand logos, fabric patterns, embroidery, stitching, or material textures on the product. Every letter, logo, pattern, and detail must remain razor-sharp and 100% identical to the original item in Full HD.\n5. Output ONLY the resulting high-resolution product image without any added external text, borders, or graphics.",
-            },
-          ],
-        },
-      });
+    let resultUrl: string | null = null;
+    let lastError: any = null;
 
-      const candidate = response.candidates?.[0];
-      if (!candidate?.content?.parts) {
-        throw new Error("No se pudo generar la imagen de estudio.");
-      }
+    for (const currentModel of uniqueModels) {
+      try {
+        resultUrl = await executeWithRetry(async () => {
+          const client = getGeminiClient();
+          const response = await client.models.generateContent({
+            model: currentModel,
+            contents: {
+              parts: [
+                {
+                  inlineData: {
+                    mimeType: 'image/jpeg',
+                    data: cleanBase64,
+                  },
+                },
+                {
+                  text: "Convert this photo into a Full HD, ultra-crisp professional e-commerce studio shot:\n1. Remove the background completely and replace with 100% pure, seamless solid white (hex #FFFFFF).\n2. Center the product cleanly, occupying approximately 80% to 85% of the frame (height or dominant dimension), leaving clean balanced margins.\n3. Apply professional, bright, high-definition studio lighting across the entire product, eliminating all harsh shadows, glare, human hands/fingers, and background clutter.\n4. CRITICAL: PRESERVE EXACT 100% FIDELITY. Do NOT alter, hallucinate, blur, smudge, or distort any printed text, typography, numbers, brand logos, fabric patterns, embroidery, stitching, or material textures on the product. Every letter, logo, pattern, and detail must remain razor-sharp and 100% identical to the original item in Full HD.\n5. Output ONLY the resulting high-resolution product image without any added external text, borders, or graphics.",
+                },
+              ],
+            },
+          });
 
-      for (const part of candidate.content.parts) {
-        if (part.inlineData) {
-          return `data:image/png;base64,${part.inlineData.data}`;
-        }
+          const candidate = response.candidates?.[0];
+          if (!candidate?.content?.parts) {
+            throw new Error("No se pudo generar la imagen de estudio.");
+          }
+
+          for (const part of candidate.content.parts) {
+            if (part.inlineData) {
+              return `data:image/png;base64,${part.inlineData.data}`;
+            }
+          }
+          throw new Error("La IA no devolvió una imagen procesada.");
+        }, 3, 1500);
+
+        if (resultUrl) break;
+      } catch (modelErr: any) {
+        console.warn(`[transform-studio-shot] Modelo ${currentModel} falló:`, modelErr.message || modelErr);
+        lastError = modelErr;
       }
-      throw new Error("La IA no devolvió una imagen procesada.");
-    });
+    }
+
+    if (!resultUrl) {
+      let cleanMsg = lastError?.message || "No se pudo generar la foto de estudio con IA.";
+      try {
+        const parsed = JSON.parse(cleanMsg);
+        if (parsed?.error?.message) cleanMsg = parsed.error.message;
+      } catch {}
+      return res.status(500).json({ error: cleanMsg });
+    }
 
     return res.json({ studioImage: resultUrl });
   } catch (error: any) {
     console.error("Error in transform-studio-shot endpoint:", error);
-    return res.status(500).json({ error: error.message || "Error al procesar la imagen" });
+    let cleanMsg = error.message || "Error al procesar la imagen";
+    try {
+      const parsed = JSON.parse(cleanMsg);
+      if (parsed?.error?.message) cleanMsg = parsed.error.message;
+    } catch {}
+    return res.status(500).json({ error: cleanMsg });
   }
 });
 
