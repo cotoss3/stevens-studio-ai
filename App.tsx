@@ -78,7 +78,89 @@ const App: React.FC = () => {
 
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success'>('idle');
   const [processingMessage, setProcessingMessage] = useState<string>('');
+  const [processingElapsed, setProcessingElapsed] = useState(0);
   const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (!state.isProcessing) {
+      setProcessingElapsed(0);
+      return;
+    }
+    const start = Date.now();
+    const interval = setInterval(() => {
+      setProcessingElapsed(Math.floor((Date.now() - start) / 1000));
+    }, 500);
+    return () => clearInterval(interval);
+  }, [state.isProcessing]);
+
+  const getCalmStageInfo = () => {
+    if (state.step === AppStep.SCAN_UPC) {
+      if (processingElapsed < 2) {
+        return {
+          badge: 'Etapa 1 de 3',
+          title: 'Detectando código de barras...',
+          subtitle: 'Enfocando y leyendo la nitidez del código en la imagen.',
+          progress: 35
+        };
+      }
+      if (processingElapsed < 4) {
+        return {
+          badge: 'Etapa 2 de 3',
+          title: 'Descifrando dígitos UPC...',
+          subtitle: 'Extrayendo con IA el número exacto del producto.',
+          progress: 70
+        };
+      }
+      return {
+        badge: 'Etapa 3 de 3',
+        title: 'Verificando en catálogo...',
+        subtitle: 'Comprobando que no esté registrado previamente para evitar duplicados.',
+        progress: 92
+      };
+    }
+
+    if (state.step === AppStep.PRODUCT_PHOTO) {
+      if (processingElapsed < 2) {
+        return {
+          badge: 'Etapa 1 de 4',
+          title: 'Analizando silueta del producto...',
+          subtitle: 'Detectando bordes, contornos y detalles con inteligencia artificial.',
+          progress: 25
+        };
+      }
+      if (processingElapsed < 4) {
+        return {
+          badge: 'Etapa 2 de 4',
+          title: 'Creando fondo blanco puro...',
+          subtitle: 'Eliminando sombras y objetos de fondo para estilo catálogo web.',
+          progress: 55
+        };
+      }
+      if (processingElapsed < 7) {
+        return {
+          badge: 'Etapa 3 de 4',
+          title: 'Centrando e iluminando...',
+          subtitle: 'Ajustando escala al 80% y balanceando luces profesionales Full HD.',
+          progress: 80
+        };
+      }
+      return {
+        badge: 'Etapa 4 de 4',
+        title: 'Perfeccionando imagen 1000x1000 px...',
+        subtitle: 'Casi listo. Asegurando el estándar óptimo de la tienda.',
+        progress: 92
+      };
+    }
+
+    return {
+      badge: 'Guardando',
+      title: processingMessage || 'Procesando información...',
+      subtitle: 'Sincronizando de forma segura en el sistema.',
+      progress: Math.min(85, 30 + processingElapsed * 15)
+    };
+  };
+
+  const calmStageInfo = getCalmStageInfo();
 
   // States for Login form
   const [loginEmail, setLoginEmail] = useState('');
@@ -1878,15 +1960,71 @@ const App: React.FC = () => {
 
       <main className="w-full max-w-2xl glass-card/95 rounded-[3rem] shadow-2xl shadow-black/60 border border-white/60/80 p-6 md:p-10 min-h-[550px] flex flex-col items-center relative overflow-hidden ring-1 ring-slate-900/10 backdrop-blur-md">
         {state.isProcessing && (
-          <div className="absolute inset-0 glass-panel/95 backdrop-blur-2xl z-50 flex flex-col items-center justify-center animate-in fade-in duration-300 px-8 text-center">
-            <div className="relative mb-10">
-              <Loader2 className="animate-spin text-slate-900" size={80} strokeWidth={3} />
-              <div className="absolute inset-0 flex items-center justify-center">
-                <Sparkles size={24} className="text-slate-900-light animate-pulse" />
+          <div className="absolute inset-0 bg-white/95 backdrop-blur-2xl z-50 flex flex-col items-center justify-center animate-in fade-in duration-300 px-6 sm:px-10 text-center">
+            {/* Halo pulsante calmante con icono centrado */}
+            <div className="relative mb-6 flex items-center justify-center">
+              <div className="absolute w-28 h-28 rounded-full bg-amber-400/20 animate-ping opacity-30" />
+              <div className="w-24 h-24 rounded-full bg-gradient-to-tr from-amber-100 via-amber-50 to-emerald-50 border-2 border-amber-400/40 shadow-xl flex items-center justify-center relative">
+                {state.step === AppStep.SCAN_UPC ? (
+                  <Barcode className="text-slate-900 animate-pulse" size={38} />
+                ) : state.step === AppStep.PRODUCT_PHOTO ? (
+                  <Sparkles className="text-amber-500 animate-pulse" size={38} />
+                ) : (
+                  <Package className="text-slate-900 animate-pulse" size={38} />
+                )}
+                <div className="absolute -bottom-1 -right-1 bg-white p-1 rounded-full shadow-md border border-slate-200">
+                  <Loader2 className="animate-spin text-amber-500" size={16} />
+                </div>
               </div>
             </div>
-            <h3 className="text-2xl font-black text-slate-900 tracking-tight uppercase mb-2 font-display">{processingMessage}</h3>
-            <p className="text-[10px] text-slate-900 font-bold uppercase tracking-[0.25em]">IA Optimizando para Stevens.com.pa</p>
+
+            {/* Titulo y descripcion calmante de la etapa */}
+            <div className="max-w-md space-y-2 mb-6">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100/80 border border-amber-300/60 text-amber-900 text-[10px] font-black uppercase tracking-wider">
+                <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                {calmStageInfo.badge} · {processingElapsed}s
+              </span>
+              <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight font-display">
+                {calmStageInfo.title}
+              </h3>
+              <p className="text-xs text-slate-600 font-medium leading-relaxed">
+                {calmStageInfo.subtitle}
+              </p>
+            </div>
+
+            {/* Barra de progreso suave y continua */}
+            <div className="w-full max-w-xs space-y-1.5 mb-5">
+              <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden p-0.5 border border-slate-200/80 shadow-inner">
+                <div 
+                  className="h-full bg-gradient-to-r from-amber-400 via-amber-500 to-emerald-500 rounded-full transition-all duration-700 ease-out"
+                  style={{ width: `${calmStageInfo.progress}%` }}
+                />
+              </div>
+              <div className="flex justify-between items-center text-[10px] text-slate-400 font-bold">
+                <span>Análisis en curso</span>
+                <span>{calmStageInfo.progress}%</span>
+              </div>
+            </div>
+
+            {/* Mensaje tranquilizador para el operador */}
+            <div className="bg-slate-50 border border-slate-200/80 rounded-2xl px-4 py-2.5 max-w-xs flex items-center gap-2.5 shadow-sm text-left">
+              <span className="text-base select-none">✨</span>
+              <p className="text-[11px] text-slate-600 leading-tight font-medium">
+                Todo va bien. La aplicación avanzará automáticamente al siguiente paso.
+              </p>
+            </div>
+
+            {/* Opcion de contingencia si la foto de estudio toma mas de 6 segundos */}
+            {state.step === AppStep.PRODUCT_PHOTO && lastProductRawImage && processingElapsed >= 6 && (
+              <button
+                type="button"
+                onClick={handleUseDirectPhoto}
+                className="mt-4 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center gap-2 animate-in fade-in duration-300 cursor-pointer"
+              >
+                <CheckCircle size={14} className="text-amber-400" />
+                ¿Tienes prisa? Usar foto directa sin esperar
+              </button>
+            )}
           </div>
         )}
 

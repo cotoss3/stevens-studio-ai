@@ -358,12 +358,29 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
         </div>
       </div>
 
-      {/* ESTADO DE PROCESAMIENTO CON IA GEMINI */}
+      {/* ESTADO DE PROCESAMIENTO CON IA GEMINI - CLARO Y CALMANTE */}
       {isProcessing && (
-        <div className="bg-slate-900/90 border border-amber-500/30 rounded-2xl p-6 text-center space-y-3 shadow-xl backdrop-blur-md">
-          <Loader2 size={36} className="text-amber-400 animate-spin mx-auto" />
-          <p className="text-sm font-bold text-amber-400 uppercase tracking-wider">Validación y Ficha IA en Proceso (&lt; 10s)</p>
-          <p className="text-xs text-slate-400">Escuchando audio (prioridad), contrastando con la imagen y validando con catálogo de internet...</p>
+        <div className="bg-gradient-to-b from-slate-900 to-slate-950 border border-amber-500/30 rounded-3xl p-6 text-center space-y-4 shadow-2xl backdrop-blur-md animate-in fade-in duration-300">
+          <div className="relative w-16 h-16 mx-auto flex items-center justify-center">
+            <div className="absolute inset-0 rounded-full bg-amber-400/20 animate-ping opacity-40" />
+            <div className="w-14 h-14 rounded-full bg-amber-500/10 border border-amber-500/40 flex items-center justify-center">
+              <Sparkles className="text-amber-400 animate-pulse" size={26} />
+            </div>
+            <div className="absolute -bottom-1 -right-1 bg-slate-900 p-1 rounded-full border border-slate-700 shadow">
+              <Loader2 className="animate-spin text-amber-400" size={14} />
+            </div>
+          </div>
+          <div>
+            <p className="text-sm font-bold text-slate-100 flex items-center justify-center gap-1.5">
+              <span>Transcribiendo audio y creando título comercial...</span>
+            </p>
+            <p className="text-xs text-slate-400 mt-1">
+              La IA está extrayendo los detalles de tu voz. En un par de segundos la ficha estará lista.
+            </p>
+          </div>
+          <div className="w-full max-w-xs mx-auto h-1.5 bg-slate-800 rounded-full overflow-hidden">
+            <div className="h-full bg-gradient-to-r from-amber-500 to-emerald-400 rounded-full animate-pulse w-3/4" />
+          </div>
         </div>
       )}
 
