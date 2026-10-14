@@ -27,11 +27,15 @@ import {
   ChevronRight,
   Pencil,
   Keyboard,
+  Maximize2,
+  CheckCircle2,
+  Eye,
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { AppStep, AppState, User } from './types';
 import Camera from './components/Camera';
 import AudioRecorder from './components/AudioRecorder';
+import FullscreenPhotoModal from './components/FullscreenPhotoModal';
 import { geminiService } from './services/geminiService';
 import { supabase } from './services/supabase';
 import { processAndResizeProductImage } from './services/imageProcessor';
@@ -228,6 +232,25 @@ const App: React.FC = () => {
   const [isCheckingManualUpc, setIsCheckingManualUpc] = useState(false);
   const upcAbortControllerRef = useRef<AbortController | null>(null);
 
+  // States for Fullscreen Photo Inspection (Standards verification)
+  const [isFullscreenOpen, setIsFullscreenOpen] = useState(false);
+  const [fullscreenPhotoData, setFullscreenPhotoData] = useState<{
+    url: string;
+    upc?: string | null;
+    title?: string | null;
+    showApproval?: boolean;
+  } | null>(null);
+
+  const openFullscreenPhoto = (
+    url: string,
+    upc?: string | null,
+    title?: string | null,
+    showApproval = false
+  ) => {
+    setFullscreenPhotoData({ url, upc, title, showApproval });
+    setIsFullscreenOpen(true);
+  };
+
   const copyOrigin = () => {
     navigator.clipboard.writeText(window.location.origin);
     setCopied(true);
@@ -405,7 +428,7 @@ const App: React.FC = () => {
       setState(prev => ({
         ...prev,
         productImage: finalResizedImage,
-        step: AppStep.RECORD_AUDIO,
+        step: AppStep.PRODUCT_PHOTO,
         isProcessing: false
       }));
     } catch (err: any) {
@@ -437,14 +460,14 @@ const App: React.FC = () => {
       setState(prev => ({
         ...prev,
         productImage: finalResizedImage,
-        step: AppStep.RECORD_AUDIO,
+        step: AppStep.PRODUCT_PHOTO,
         isProcessing: false
       }));
     } catch {
       setState(prev => ({
         ...prev,
         productImage: lastProductRawImage,
-        step: AppStep.RECORD_AUDIO,
+        step: AppStep.PRODUCT_PHOTO,
         isProcessing: false
       }));
     }
@@ -1653,8 +1676,19 @@ const App: React.FC = () => {
                             />
                           </div>
                           
-                          <div className="bg-white aspect-square flex items-center justify-center p-2">
+                          <div 
+                            className="bg-white aspect-square flex items-center justify-center p-2 relative group"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openFullscreenPhoto(photo.imageUrl, photo.upc, photo.title, false);
+                            }}
+                          >
                             <img src={photo.imageUrl} alt={photo.upc} className="w-full h-full object-contain" />
+                            <div className="absolute inset-0 bg-slate-950/25 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                              <span className="p-1.5 bg-slate-900/90 text-white rounded-lg shadow-md flex items-center gap-1 text-[10px] font-bold">
+                                <Maximize2 size={12} /> Ampliar
+                              </span>
+                            </div>
                           </div>
                           <div className="p-4">
                             <p className="text-sm font-mono font-black text-slate-800">{photo.upc}</p>
@@ -2009,6 +2043,16 @@ const App: React.FC = () => {
             </div>
           </div>
         )}
+
+        {/* MODAL VISOR A PANTALLA COMPLETA CON ZOOM Y ESTÁNDARES EN ADMIN */}
+        <FullscreenPhotoModal
+          isOpen={isFullscreenOpen}
+          onClose={() => setIsFullscreenOpen(false)}
+          imageUrl={fullscreenPhotoData?.url || null}
+          upcCode={fullscreenPhotoData?.upc || null}
+          title={fullscreenPhotoData?.title || null}
+          showApprovalControls={false}
+        />
       </div>
     );
   }
@@ -2401,18 +2445,146 @@ const App: React.FC = () => {
         {/* Paso 2: Product Photo */}
         {state.step === AppStep.PRODUCT_PHOTO && (
           <div className="w-full flex flex-col items-center animate-in fade-in slide-in-from-bottom-6 duration-500">
-            <div className="w-full flex items-center justify-between mb-8">
-              <button onClick={() => setState(prev => ({ ...prev, step: AppStep.SCAN_UPC }))} className="p-3 hover:glass-panel rounded-[20px] transition-all text-slate-500"><ArrowLeft size={22} /></button>
-              <div className="text-center">
-                <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight font-display">Paso 2: Foto de Estudio</h2>
-                <div className="mt-1 flex items-center justify-center gap-2">
-                  <span className="text-slate-900 font-mono font-black text-[10px] bg-slate-900/10 px-3 py-1 rounded-full border border-brand-gold/30">UPC: {state.upcCode}</span>
+            {!state.productImage ? (
+              <>
+                <div className="w-full flex items-center justify-between mb-8">
+                  <button onClick={() => setState(prev => ({ ...prev, step: AppStep.SCAN_UPC }))} className="p-3 hover:glass-panel rounded-[20px] transition-all text-slate-500"><ArrowLeft size={22} /></button>
+                  <div className="text-center">
+                    <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight font-display">Paso 2: Foto de Estudio</h2>
+                    <div className="mt-1 flex items-center justify-center gap-2">
+                      <span className="text-slate-900 font-mono font-black text-[10px] bg-slate-900/10 px-3 py-1 rounded-full border border-brand-gold/30">UPC: {state.upcCode}</span>
+                    </div>
+                  </div>
+                  <div className="w-10" />
+                </div>
+                <Camera onCapture={handleCaptureProduct} label="FOTO DE PRODUCTO (FONDO BLANCO IA)" mode="product" />
+                <p className="mt-6 text-[10px] text-slate-500 font-black uppercase tracking-widest text-center">Fondo Blanco Puro • Sin Sombras • Remoción Automática IA</p>
+              </>
+            ) : (
+              /* REVISIÓN INMEDIATA DE LA FOTO DEVUELTA CON OPCIÓN DE PANTALLA COMPLETA */
+              <div className="w-full flex flex-col items-center animate-in zoom-in-95 duration-300">
+                <div className="w-full flex items-center justify-between mb-6">
+                  <button 
+                    onClick={() => setState(prev => ({ ...prev, productImage: null }))} 
+                    className="p-3 hover:glass-panel rounded-[20px] transition-all text-slate-500 flex items-center gap-1.5 text-xs font-bold"
+                    title="Volver a la cámara"
+                  >
+                    <ArrowLeft size={20} />
+                    <span>Cámara</span>
+                  </button>
+                  <div className="text-center">
+                    <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-emerald-100 border border-emerald-300 text-emerald-800 text-[10px] font-black uppercase tracking-wider mb-1">
+                      <CheckCircle2 size={12} className="text-emerald-600" /> Foto Lista para Revisión
+                    </div>
+                    <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight font-display">Revisión de Calidad</h2>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-slate-900 font-mono font-black text-[10px] bg-slate-900/10 px-3 py-1 rounded-full border border-brand-gold/30">
+                      UPC: {state.upcCode}
+                    </span>
+                  </div>
+                </div>
+
+                {/* CONTENEDOR DE VISTA PREVIA INTERACTIVA */}
+                <div className="w-full max-w-md bg-white rounded-3xl p-4 sm:p-5 shadow-2xl border-2 border-slate-200/90 flex flex-col items-center relative group">
+                  {/* Lienzo cuadrado 1:1 estilo e-commerce */}
+                  <div 
+                    onClick={() => openFullscreenPhoto(state.productImage!, state.upcCode, null, true)}
+                    className="relative w-full aspect-square bg-white rounded-2xl overflow-hidden border border-slate-200/80 cursor-pointer shadow-inner flex items-center justify-center group"
+                    title="Toca para ampliar a pantalla completa"
+                  >
+                    <img 
+                      src={state.productImage} 
+                      alt="Foto procesada" 
+                      className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105" 
+                    />
+                    
+                    {/* Hover / Overlay para invitar a pantalla completa */}
+                    <div className="absolute inset-0 bg-slate-950/25 group-hover:bg-slate-950/45 opacity-0 group-hover:opacity-100 transition-all flex flex-col items-center justify-center gap-2 p-4 text-center">
+                      <span className="px-4 py-2 bg-slate-950/90 text-white rounded-full text-xs font-bold flex items-center gap-2 shadow-xl backdrop-blur-md border border-white/20 transform group-hover:scale-105 transition-transform">
+                        <Maximize2 size={16} className="text-amber-400" />
+                        Toca para pantalla completa
+                      </span>
+                      <p className="text-[11px] text-white/95 font-medium drop-shadow">
+                        Revisa fondo blanco, nitidez y recorte al detalle
+                      </p>
+                    </div>
+
+                    {/* Badge de dimension estándar */}
+                    <div className="absolute bottom-2 left-2 bg-slate-900/80 backdrop-blur-md border border-slate-700 text-white px-2 py-0.5 rounded-md text-[9px] font-mono font-bold">
+                      1000 × 1000 px
+                    </div>
+                  </div>
+
+                  {/* Botón directo de pantalla completa para máxima claridad */}
+                  <button
+                    type="button"
+                    onClick={() => openFullscreenPhoto(state.productImage!, state.upcCode, null, true)}
+                    className="mt-3.5 w-full py-2.5 px-4 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <Maximize2 size={14} className="text-amber-400" />
+                    Ampliar a Pantalla Completa (Zoom e Inspección)
+                  </button>
+
+                  {/* Checklist de Estándares Visuales */}
+                  <div className="w-full mt-4 pt-3.5 border-t border-slate-100">
+                    <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 text-left mb-2">
+                      Estándares de Calidad Stevens:
+                    </p>
+                    <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-700 font-semibold text-left">
+                      <span className="flex items-center gap-1.5 text-emerald-700 bg-emerald-50 px-2.5 py-1.5 rounded-lg border border-emerald-200/60">
+                        <CheckCircle2 size={13} className="text-emerald-600 shrink-0" />
+                        Fondo Blanco Puro
+                      </span>
+                      <span className="flex items-center gap-1.5 text-emerald-700 bg-emerald-50 px-2.5 py-1.5 rounded-lg border border-emerald-200/60">
+                        <CheckCircle2 size={13} className="text-emerald-600 shrink-0" />
+                        1000 × 1000 px
+                      </span>
+                      <span className="flex items-center gap-1.5 text-emerald-700 bg-emerald-50 px-2.5 py-1.5 rounded-lg border border-emerald-200/60">
+                        <CheckCircle2 size={13} className="text-emerald-600 shrink-0" />
+                        Centrado al ~80%
+                      </span>
+                      <span className="flex items-center gap-1.5 text-emerald-700 bg-emerald-50 px-2.5 py-1.5 rounded-lg border border-emerald-200/60">
+                        <CheckCircle2 size={13} className="text-emerald-600 shrink-0" />
+                        Sin Sombras
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ACCIONES DEL OPERADOR */}
+                <div className="w-full max-w-md mt-5 flex flex-col sm:flex-row gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setState(prev => ({ ...prev, productImage: null }))}
+                    className="flex-1 py-3.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs uppercase tracking-wider rounded-2xl transition-all border border-slate-300/80 flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <RefreshCw size={14} className="text-slate-500" />
+                    Volver a Tomar
+                  </button>
+
+                  {lastProductRawImage && (
+                    <button
+                      type="button"
+                      onClick={() => handleCaptureProduct(lastProductRawImage)}
+                      className="flex-1 py-3.5 px-4 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs uppercase tracking-wider rounded-2xl transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+                    >
+                      <Sparkles size={14} className="text-amber-400" />
+                      Reintentar IA
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => setState(prev => ({ ...prev, step: AppStep.RECORD_AUDIO }))}
+                    className="flex-1 py-3.5 px-4 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs uppercase tracking-wider rounded-2xl transition-all shadow-lg shadow-amber-500/25 flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+                  >
+                    <CheckCircle2 size={16} />
+                    Aprobar y Continuar
+                  </button>
                 </div>
               </div>
-              <div className="w-10" />
-            </div>
-            <Camera onCapture={handleCaptureProduct} label="FOTO DE PRODUCTO (FONDO BLANCO IA)" mode="product" />
-            <p className="mt-6 text-[10px] text-slate-500 font-black uppercase tracking-widest text-center">Fondo Blanco Puro • Sin Sombras • Remoción Automática IA</p>
+            )}
           </div>
         )}
 
@@ -2433,6 +2605,7 @@ const App: React.FC = () => {
               initialTitle={state.productTitle}
               initialDescription={state.productDescription}
               initialTranscription={state.transcription}
+              onViewFullscreen={(img) => openFullscreenPhoto(img, state.upcCode, state.productTitle, false)}
               onAudioProcessed={(data) => {
                 setState(prev => ({
                   ...prev,
@@ -2466,8 +2639,17 @@ const App: React.FC = () => {
             <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
               {/* VISTA PREVIA IMAGEN */}
               <div className="flex flex-col items-center">
-                <div className="relative w-full aspect-square bg-slate-900 rounded-[2rem] overflow-hidden border-4 border-slate-800 shadow-2xl p-3 bg-white">
+                <div 
+                  onClick={() => openFullscreenPhoto(state.productImage!, state.upcCode, state.productTitle, false)}
+                  className="relative w-full aspect-square bg-slate-900 rounded-[2rem] overflow-hidden border-4 border-slate-800 shadow-2xl p-3 bg-white cursor-pointer group"
+                  title="Toca para ampliar a pantalla completa"
+                >
                   <img src={state.productImage} alt="Clean Product" className="w-full h-full object-contain" />
+                  <div className="absolute inset-0 bg-slate-950/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                    <span className="px-3 py-1.5 rounded-full bg-slate-900/90 text-white text-xs font-bold flex items-center gap-1.5 shadow-lg">
+                      <Maximize2 size={13} /> Ampliar pantalla completa
+                    </span>
+                  </div>
                 </div>
                 <div className="mt-3 text-center">
                   <span className="text-[10px] font-mono font-bold text-slate-400 bg-slate-900 px-3 py-1 rounded-full border border-slate-800">
@@ -2558,6 +2740,24 @@ const App: React.FC = () => {
         </div>
         <p className="opacity-40">Stevens Panamá &copy; 2026 • Supabase Cloud Secure</p>
       </footer>
+
+      {/* MODAL VISOR A PANTALLA COMPLETA CON ZOOM Y ESTÁNDARES */}
+      <FullscreenPhotoModal
+        isOpen={isFullscreenOpen}
+        onClose={() => setIsFullscreenOpen(false)}
+        imageUrl={fullscreenPhotoData?.url || null}
+        upcCode={fullscreenPhotoData?.upc || state.upcCode}
+        title={fullscreenPhotoData?.title || state.productTitle}
+        showApprovalControls={fullscreenPhotoData?.showApproval || false}
+        onApprove={() => {
+          setIsFullscreenOpen(false);
+          setState(prev => ({ ...prev, step: AppStep.RECORD_AUDIO }));
+        }}
+        onRetake={() => {
+          setIsFullscreenOpen(false);
+          setState(prev => ({ ...prev, productImage: null }));
+        }}
+      />
     </div>
   );
 };

@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Mic, Square, Sparkles, Upload, Volume2, RefreshCw, CheckCircle2, AlertCircle, Loader2, Play, Pause } from 'lucide-react';
+import { Mic, Square, Sparkles, Upload, Volume2, RefreshCw, CheckCircle2, AlertCircle, Loader2, Play, Pause, Maximize2 } from 'lucide-react';
 import { geminiService } from '../services/geminiService';
 
 interface AudioRecorderProps {
@@ -15,6 +15,7 @@ interface AudioRecorderProps {
   initialTranscription?: string | null;
   productImage?: string | null;
   upcCode?: string | null;
+  onViewFullscreen?: (imageUrl: string) => void;
 }
 
 const AudioRecorder: React.FC<AudioRecorderProps> = ({
@@ -24,7 +25,8 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
   initialDescription = '',
   initialTranscription = '',
   productImage = null,
-  upcCode = null
+  upcCode = null,
+  onViewFullscreen
 }) => {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
@@ -269,8 +271,34 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
           </div>
         </div>
 
+        {/* VISTA PREVIA DE LA FOTO DEL PRODUCTO APROBADA */}
+        {productImage && (
+          <div 
+            onClick={() => onViewFullscreen?.(productImage)}
+            className="mt-4 p-3 bg-slate-950/80 hover:bg-slate-950 border border-slate-800 hover:border-amber-500/40 rounded-2xl flex items-center justify-between gap-3 cursor-pointer transition-all group shadow-inner"
+            title="Toca para ampliar a pantalla completa"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-xl overflow-hidden bg-white border border-slate-700 shrink-0 flex items-center justify-center p-0.5 shadow-sm">
+                <img src={productImage} alt="Producto" className="w-full h-full object-contain" />
+              </div>
+              <div className="text-left">
+                <span className="text-[10px] font-black uppercase tracking-wider text-amber-400 flex items-center gap-1">
+                  <Sparkles size={11} /> Foto del Producto Aprobada (1000×1000 px)
+                </span>
+                <p className="text-xs font-semibold text-slate-300 group-hover:text-white transition-colors">
+                  Toca aquí para revisar a pantalla completa
+                </p>
+              </div>
+            </div>
+            <span className="p-2 rounded-xl bg-slate-800 group-hover:bg-amber-500 group-hover:text-slate-950 text-slate-400 transition-all shadow-sm">
+              <Maximize2 size={15} />
+            </span>
+          </div>
+        )}
+
         {/* CONTROLES DE GRABACIÓN DE AUDIO */}
-        <div className="mt-6 flex flex-col items-center justify-center p-6 bg-slate-950/80 rounded-2xl border border-slate-800/80 space-y-4">
+        <div className="mt-5 flex flex-col items-center justify-center p-6 bg-slate-950/80 rounded-2xl border border-slate-800/80 space-y-4">
           
           {isRecording ? (
             <div className="flex flex-col items-center gap-4 animate-fade-in">

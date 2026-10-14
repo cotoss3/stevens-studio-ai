@@ -18,7 +18,7 @@ export class GeminiService {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(formatServerError(response.status, errorData.error));
+      throw new Error(errorData.error || `Error del servidor (${response.status})`);
     }
 
     const data = await response.json();
@@ -44,7 +44,12 @@ export class GeminiService {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(formatServerError(response.status, errorData.error));
+      let msg = errorData.error || `Error del servidor (${response.status})`;
+      try {
+        const parsed = JSON.parse(msg);
+        if (parsed?.error?.message) msg = parsed.error.message;
+      } catch {}
+      throw new Error(msg);
     }
 
     const data = await response.json();
@@ -73,28 +78,16 @@ export class GeminiService {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(formatServerError(response.status, errorData.error));
+      let msg = errorData.error || `Error del servidor (${response.status})`;
+      try {
+        const parsed = JSON.parse(msg);
+        if (parsed?.error?.message) msg = parsed.error.message;
+      } catch {}
+      throw new Error(msg);
     }
 
     return await response.json();
   }
-}
-
-function formatServerError(status: number, rawError?: string): string {
-  if (status === 504) {
-    return "El servidor tardó más de lo esperado (504 Gateway Timeout). Puedes reintentar o usar la opción manual/directa.";
-  }
-  if (status === 503) {
-    return "Alta demanda momentánea en la IA (503). Por favor reintenta en unos segundos o usa la opción directa.";
-  }
-  if (rawError) {
-    try {
-      const parsed = JSON.parse(rawError);
-      if (parsed?.error?.message) return parsed.error.message;
-    } catch {}
-    return rawError;
-  }
-  return `Error del servidor (${status})`;
 }
 
 export const geminiService = new GeminiService();

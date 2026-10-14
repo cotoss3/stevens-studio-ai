@@ -620,7 +620,7 @@ async function startServer() {
               }
             }
             throw new Error("La IA no devolvió una imagen procesada.");
-          }, 2, 800);
+          }, 3, 1500);
 
           if (resultUrl) break;
         } catch (modelErr: any) {

@@ -2,9 +2,6 @@ import express from "express";
 import { GoogleGenAI } from "@google/genai";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
-// Configure Vercel serverless function max execution time
-export const maxDuration = 60;
-
 const app = express();
 app.use(express.json({ limit: '50mb' }));
 
@@ -570,7 +567,7 @@ app.post("/api/gemini/transform-studio-shot", async (req, res) => {
             }
           }
           throw new Error("La IA no devolvió una imagen procesada.");
-        }, 2, 800);
+        }, 3, 1500);
 
         if (resultUrl) break;
       } catch (modelErr: any) {
