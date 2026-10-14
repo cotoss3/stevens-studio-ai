@@ -317,19 +317,20 @@ app.get("/api/admin/reports", async (req, res) => {
 app.get("/api/admin/products", async (req, res) => {
   try {
     const supabase = getSupabaseAdmin();
+    const limitNum = parseInt(req.query.limit as string) || 1000;
     let { data, error } = await supabase
       .from('products')
       .select('*')
       .is('deleted_at', null)
       .order('created_at', { ascending: false })
-      .limit(100);
+      .limit(limitNum);
 
     if (error && (error.code === '42703' || /deleted_at/i.test(error.message || ''))) {
       ({ data, error } = await supabase
         .from('products')
         .select('*')
         .order('created_at', { ascending: false })
-        .limit(100));
+        .limit(limitNum));
     }
 
     if (error) throw error;

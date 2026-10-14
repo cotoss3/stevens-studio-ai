@@ -25,6 +25,8 @@ import {
   Calendar,
   ChevronLeft,
   ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   Pencil,
   Keyboard,
   Maximize2,
@@ -184,6 +186,8 @@ const App: React.FC = () => {
   const [filterEndDate, setFilterEndDate] = useState('');
   const [selectedPhotos, setSelectedPhotos] = useState<Set<string>>(new Set());
   const [gridSize, setGridSize] = useState<'small' | 'medium' | 'large'>('medium');
+  const [photosCurrentPage, setPhotosCurrentPage] = useState<number>(1);
+  const PHOTOS_PER_PAGE = 20;
 
   const [adminErrorMsg, setAdminErrorMsg] = useState<string | null>(null);
   const [adminSuccessMsg, setAdminSuccessMsg] = useState<string | null>(null);
@@ -741,7 +745,7 @@ const App: React.FC = () => {
         if (res.error) throw new Error(res.error);
         setUsersList(res);
       } else if (adminSection === 'photos') {
-        const res = await fetch('/api/admin/products').then(r => r.json());
+        const res = await fetch('/api/admin/products?limit=5000').then(r => r.json());
         if (res.error) throw new Error(res.error);
         setPhotosList(res);
       }
@@ -1139,7 +1143,7 @@ const App: React.FC = () => {
 
   const isDashboardRoute = window.location.pathname.includes('dashboard');
 
-  // Derived states and handlers for Mass Actions
+  // Derived states and handlers for Mass Actions & Pagination (20 photos per page)
   const displayedPhotos = photosList.filter(p => {
     if (!filterStartDate && !filterEndDate) return true;
     const pDate = new Date(p.createdAt).toISOString().split('T')[0];
@@ -1149,19 +1153,70 @@ const App: React.FC = () => {
     return true;
   });
 
+  const totalPhotosPages = Math.max(1, Math.ceil(displayedPhotos.length / PHOTOS_PER_PAGE));
+  const safePhotosPage = Math.min(Math.max(1, photosCurrentPage), totalPhotosPages);
+  const photosStartIndex = (safePhotosPage - 1) * PHOTOS_PER_PAGE;
+  const photosEndIndex = Math.min(photosStartIndex + PHOTOS_PER_PAGE, displayedPhotos.length);
+  const paginatedPhotos = displayedPhotos.slice(photosStartIndex, photosEndIndex);
+
+  // Selection states (current page vs global persistent selection)
+  const selectedOnCurrentPage = paginatedPhotos.filter(p => selectedPhotos.has(p.$id));
+  const isCurrentPageFullySelected = paginatedPhotos.length > 0 && selectedOnCurrentPage.length === paginatedPhotos.length;
+  const isCurrentPagePartiallySelected = selectedOnCurrentPage.length > 0 && !isCurrentPageFullySelected;
+  const areAllDisplayedSelected = displayedPhotos.length > 0 && selectedPhotos.size === displayedPhotos.length;
+
   const toggleSelection = (id: string) => {
     const next = new Set(selectedPhotos);
     if (next.has(id)) next.delete(id);
     else next.add(id);
     setSelectedPhotos(next);
   };
-  
-  const toggleAll = () => {
-    if (selectedPhotos.size === displayedPhotos.length && displayedPhotos.length > 0) {
+
+  const toggleSelectCurrentPage = () => {
+    const next = new Set(selectedPhotos);
+    if (isCurrentPageFullySelected) {
+      paginatedPhotos.forEach(p => next.delete(p.$id));
+    } else {
+      paginatedPhotos.forEach(p => next.add(p.$id));
+    }
+    setSelectedPhotos(next);
+  };
+
+  const toggleSelectAllDisplayed = () => {
+    if (areAllDisplayedSelected) {
       setSelectedPhotos(new Set());
     } else {
       setSelectedPhotos(new Set(displayedPhotos.map(p => p.$id)));
     }
+  };
+
+  const clearSelection = () => {
+    setSelectedPhotos(new Set());
+  };
+
+  const getPageNumbers = (current: number, total: number) => {
+    if (total <= 7) {
+      return Array.from({ length: total }, (_, i) => i + 1);
+    }
+    const pages: (number | string)[] = [];
+    if (current <= 4) {
+      for (let i = 1; i <= 5; i++) pages.push(i);
+      pages.push('...');
+      pages.push(total);
+    } else if (current >= total - 3) {
+      pages.push(1);
+      pages.push('...');
+      for (let i = total - 4; i <= total; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      pages.push('...');
+      pages.push(current - 1);
+      pages.push(current);
+      pages.push(current + 1);
+      pages.push('...');
+      pages.push(total);
+    }
+    return pages;
   };
 
   // ── RENDER: Admin pantalla completa con sidebar ──────────────────────────
@@ -1558,17 +1613,26 @@ const App: React.FC = () => {
             <div className="p-4 md:p-8">
               <div className="glass-card border border-white/60 rounded-[32px] overflow-hidden">
                 <div className="p-6 border-b border-white/60 flex flex-col gap-4 md:flex-row md:items-center justify-between">
-                  <h3 className="text-xs font-black text-slate-600 uppercase tracking-wider">Fotos publicadas ({displayedPhotos.length})</h3>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <h3 className="text-xs font-black text-slate-700 uppercase tracking-wider">
+                      Fotos publicadas ({displayedPhotos.length})
+                    </h3>
+                    {totalPhotosPages > 1 && (
+                      <span className="text-[11px] font-bold text-slate-600 bg-white/70 px-2.5 py-0.5 rounded-full border border-slate-200 shadow-xs">
+                        Página {safePhotosPage} de {totalPhotosPages} · 20 por página
+                      </span>
+                    )}
+                  </div>
                   
                   <div className="flex flex-wrap items-center gap-3">
                     {/* Size controls */}
                     <div className="flex glass-panel border border-white/60 rounded-full p-1">
-                      <button onClick={() => setGridSize('small')} className={`p-1.5 rounded-full ${gridSize === 'small' ? 'bg-slate-800 text-slate-800' : 'text-slate-500 hover:text-slate-600'}`} title="Chico">S</button>
-                      <button onClick={() => setGridSize('medium')} className={`p-1.5 rounded-full ${gridSize === 'medium' ? 'bg-slate-800 text-slate-800' : 'text-slate-500 hover:text-slate-600'}`} title="Mediano">M</button>
-                      <button onClick={() => setGridSize('large')} className={`p-1.5 rounded-full ${gridSize === 'large' ? 'bg-slate-800 text-slate-800' : 'text-slate-500 hover:text-slate-600'}`} title="Grande">L</button>
+                      <button onClick={() => setGridSize('small')} className={`p-1.5 rounded-full ${gridSize === 'small' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:text-slate-600'}`} title="Chico">S</button>
+                      <button onClick={() => setGridSize('medium')} className={`p-1.5 rounded-full ${gridSize === 'medium' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:text-slate-600'}`} title="Mediano">M</button>
+                      <button onClick={() => setGridSize('large')} className={`p-1.5 rounded-full ${gridSize === 'large' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:text-slate-600'}`} title="Grande">L</button>
                     </div>
 
-                    <div className="h-6 w-px bg-slate-800 hidden md:block"></div>
+                    <div className="h-6 w-px bg-slate-800/20 hidden md:block"></div>
 
                     {/* Date range filter */}
                     <div className="flex items-center gap-2 glass-panel border border-white/60 rounded-full px-2">
@@ -1577,7 +1641,7 @@ const App: React.FC = () => {
                         value={filterStartDate}
                         onChange={(e) => {
                           setFilterStartDate(e.target.value);
-                          setSelectedPhotos(new Set());
+                          setPhotosCurrentPage(1);
                         }}
                         className="px-2 py-2 bg-transparent text-[10px] sm:text-xs text-slate-600 font-mono outline-none"
                         title="Fecha Inicio"
@@ -1588,7 +1652,7 @@ const App: React.FC = () => {
                         value={filterEndDate}
                         onChange={(e) => {
                           setFilterEndDate(e.target.value);
-                          setSelectedPhotos(new Set());
+                          setPhotosCurrentPage(1);
                         }}
                         className="px-2 py-2 bg-transparent text-[10px] sm:text-xs text-slate-600 font-mono outline-none"
                         title="Fecha Fin"
@@ -1596,7 +1660,7 @@ const App: React.FC = () => {
                     </div>
                     
                     {(filterStartDate || filterEndDate) && (
-                      <button onClick={() => { setFilterStartDate(''); setFilterEndDate(''); setSelectedPhotos(new Set()); }} className="text-xs text-slate-500 hover:text-slate-600 font-bold">
+                      <button onClick={() => { setFilterStartDate(''); setFilterEndDate(''); setPhotosCurrentPage(1); }} className="text-xs text-slate-500 hover:text-slate-700 font-bold underline">
                         Quitar Filtro
                       </button>
                     )}
@@ -1605,34 +1669,70 @@ const App: React.FC = () => {
 
                 {/* Mass Actions Bar */}
                 {displayedPhotos.length > 0 && (
-                  <div className="px-4 md:px-6 py-3 bg-white/50 backdrop-blur-md border-b border-white/60 flex flex-wrap items-center justify-between gap-2">
-                    <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-600 hover:text-white">
-                      <input 
-                        type="checkbox" 
-                        checked={selectedPhotos.size === displayedPhotos.length && displayedPhotos.length > 0} 
-                        onChange={toggleAll}
-                        className="w-4 h-4 rounded glass-panel border-slate-200 text-slate-900 focus:ring-slate-900 focus:ring-offset-brand-navy"
-                      />
-                      Seleccionar Todo ({selectedPhotos.size} / {displayedPhotos.length})
-                    </label>
+                  <div className="px-4 md:px-6 py-3 bg-white/60 backdrop-blur-md border-b border-white/60 flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex flex-wrap items-center gap-2.5">
+                      {/* Checkbox para la página actual */}
+                      <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700 hover:text-slate-900 select-none bg-white/80 border border-slate-200 px-3 py-1.5 rounded-full shadow-xs">
+                        <input 
+                          type="checkbox" 
+                          checked={isCurrentPageFullySelected} 
+                          ref={el => {
+                            if (el) el.indeterminate = isCurrentPagePartiallySelected;
+                          }}
+                          onChange={toggleSelectCurrentPage}
+                          className="w-4 h-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900 cursor-pointer"
+                        />
+                        <span>Página actual ({selectedOnCurrentPage.length}/{paginatedPhotos.length})</span>
+                      </label>
+
+                      {/* Botón para seleccionar todo el catálogo */}
+                      <button
+                        type="button"
+                        onClick={toggleSelectAllDisplayed}
+                        className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all border shadow-xs ${
+                          areAllDisplayedSelected
+                            ? 'bg-slate-900 text-white border-slate-900'
+                            : 'bg-white/80 hover:bg-white text-slate-700 border-slate-200'
+                        }`}
+                      >
+                        {areAllDisplayedSelected ? 'Deseleccionar todo' : `Seleccionar catálogo completo (${displayedPhotos.length})`}
+                      </button>
+
+                      {/* Badge de selección total persistente */}
+                      {selectedPhotos.size > 0 && (
+                        <div className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 text-amber-900 px-3 py-1 rounded-full text-xs font-bold">
+                          <span>{selectedPhotos.size} seleccionada{selectedPhotos.size > 1 ? 's' : ''} en total</span>
+                          <button 
+                            type="button" 
+                            onClick={clearSelection} 
+                            className="text-amber-700 hover:text-rose-600 ml-1 underline text-[11px]"
+                            title="Limpiar selección"
+                          >
+                            Limpiar
+                          </button>
+                        </div>
+                      )}
+                    </div>
 
                     <div className="flex flex-wrap gap-2 items-center">
                       {zipProgress && (
-                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
-                          <Loader2 className="animate-spin" size={12} /> {zipProgress}
+                        <span className="text-[10px] font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1 bg-white/80 border border-slate-200 px-2.5 py-1 rounded-full">
+                          <Loader2 className="animate-spin text-slate-700" size={12} /> {zipProgress}
                         </span>
                       )}
                       <button 
                         onClick={() => handleDownloadAllZip(displayedPhotos)}
                         disabled={displayedPhotos.length === 0 || isAdminActionLoading}
-                        className="px-3 py-1.5 bg-slate-900 border border-slate-900 text-white hover:bg-slate-800 rounded-full text-[10px] font-bold uppercase tracking-wider disabled:opacity-50 transition-all flex items-center gap-1"
+                        className="px-3.5 py-1.5 bg-slate-900 border border-slate-900 text-white hover:bg-slate-800 rounded-full text-[10px] font-bold uppercase tracking-wider disabled:opacity-50 transition-all flex items-center gap-1 shadow-sm"
+                        title="Descargar todas las fotos del catálogo en un ZIP consolidado con Excel, TXT y JSON"
                       >
-                        <Download size={12} /> ZIP Todas ({displayedPhotos.length})
+                        <Download size={12} /> ZIP Todo ({displayedPhotos.length})
                       </button>
                       <button 
                         onClick={() => handleMassDownload(displayedPhotos)}
                         disabled={selectedPhotos.size === 0 || isAdminActionLoading}
-                        className="px-3 py-1.5 bg-emerald-50 border border-emerald-200 text-emerald-600 hover:bg-emerald-100 rounded-full text-[10px] font-bold uppercase tracking-wider disabled:opacity-50 transition-all flex items-center gap-1"
+                        className="px-3.5 py-1.5 bg-emerald-600 border border-emerald-600 text-white hover:bg-emerald-700 rounded-full text-[10px] font-bold uppercase tracking-wider disabled:opacity-50 transition-all flex items-center gap-1 shadow-sm"
+                        title="Descargar las fotos seleccionadas (de cualquier página) en un ZIP consolidado con Excel, TXT y JSON"
                       >
                         <Download size={12} /> ZIP Selección ({selectedPhotos.size})
                       </button>
@@ -1640,8 +1740,79 @@ const App: React.FC = () => {
                         onClick={() => handleMassDelete(displayedPhotos)}
                         disabled={selectedPhotos.size === 0 || isAdminActionLoading}
                         className="px-3 py-1.5 bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-100 rounded-full text-[10px] font-bold uppercase tracking-wider disabled:opacity-50 transition-all flex items-center gap-1"
+                        title="Eliminar las fotos seleccionadas"
                       >
-                        Eliminar ({selectedPhotos.size})
+                        <Trash2 size={12} /> Eliminar ({selectedPhotos.size})
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Paginación Superior */}
+                {totalPhotosPages > 1 && (
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-6 py-2.5 bg-white/40 backdrop-blur-sm border-b border-white/60">
+                    <div className="text-xs text-slate-500 font-medium">
+                      Mostrando <span className="font-bold text-slate-800">{displayedPhotos.length > 0 ? photosStartIndex + 1 : 0}–{photosEndIndex}</span> de <span className="font-bold text-slate-800">{displayedPhotos.length}</span> fotos
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setPhotosCurrentPage(1)}
+                        disabled={safePhotosPage === 1}
+                        className="p-1.5 rounded-lg border border-slate-200 bg-white/80 text-slate-600 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                        title="Primera página"
+                      >
+                        <ChevronsLeft size={16} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPhotosCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={safePhotosPage === 1}
+                        className="p-1.5 rounded-lg border border-slate-200 bg-white/80 text-slate-600 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                        title="Página anterior"
+                      >
+                        <ChevronLeft size={16} />
+                      </button>
+
+                      <div className="flex items-center gap-1 mx-1">
+                        {getPageNumbers(safePhotosPage, totalPhotosPages).map((num, i) =>
+                          num === '...' ? (
+                            <span key={`top-dots-${i}`} className="px-1.5 text-xs font-bold text-slate-400 select-none">…</span>
+                          ) : (
+                            <button
+                              key={`top-page-${num}`}
+                              type="button"
+                              onClick={() => setPhotosCurrentPage(Number(num))}
+                              className={`min-w-[32px] h-8 px-2 rounded-lg text-xs font-bold transition-all ${
+                                safePhotosPage === num
+                                  ? 'bg-slate-900 text-white shadow-sm'
+                                  : 'border border-slate-200 bg-white/80 text-slate-700 hover:bg-slate-100'
+                              }`}
+                            >
+                              {num}
+                            </button>
+                          )
+                        )}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => setPhotosCurrentPage(p => Math.min(totalPhotosPages, p + 1))}
+                        disabled={safePhotosPage === totalPhotosPages}
+                        className="p-1.5 rounded-lg border border-slate-200 bg-white/80 text-slate-600 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                        title="Página siguiente"
+                      >
+                        <ChevronRight size={16} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPhotosCurrentPage(totalPhotosPages)}
+                        disabled={safePhotosPage === totalPhotosPages}
+                        className="p-1.5 rounded-lg border border-slate-200 bg-white/80 text-slate-600 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                        title="Última página"
+                      >
+                        <ChevronsRight size={16} />
                       </button>
                     </div>
                   </div>
@@ -1653,69 +1824,159 @@ const App: React.FC = () => {
                   ) : displayedPhotos.length === 0 ? (
                     <p className="text-slate-500 text-sm text-center py-8 font-bold">Sin registros aún.</p>
                   ) : (
-                    <div className={`grid gap-4 ${
-                      gridSize === 'small' ? 'grid-cols-3 sm:grid-cols-6 lg:grid-cols-8' : 
-                      gridSize === 'medium' ? 'grid-cols-2 sm:grid-cols-4 lg:grid-cols-6' : 
-                      'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
-                    }`}>
-                      {displayedPhotos.map((photo: any) => (
-                        <div 
-                          key={photo.$id} 
-                          className={`glass-panel border rounded-[20px] overflow-hidden relative cursor-pointer transition-all ${
-                            selectedPhotos.has(photo.$id) ? 'border-brand-gold ring-1 ring-slate-900' : 'border-white/60'
-                          }`}
-                          onClick={() => toggleSelection(photo.$id)}
-                        >
-                          <div className="absolute top-2 left-2 z-10 glass-card/80 p-1 rounded-full backdrop-blur-sm">
-                            <input 
-                              type="checkbox"
-                              checked={selectedPhotos.has(photo.$id)}
-                              onChange={() => toggleSelection(photo.$id)}
-                              onClick={e => e.stopPropagation()}
-                              className="w-4 h-4 rounded border-slate-200 text-slate-900"
-                            />
-                          </div>
-                          
-                          <div 
-                            className="bg-white aspect-square flex items-center justify-center p-2 relative group"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openFullscreenPhoto(photo.imageUrl, photo.upc, photo.title, false);
-                            }}
-                          >
-                            <img src={photo.imageUrl} alt={photo.upc} className="w-full h-full object-contain" />
-                            <div className="absolute inset-0 bg-slate-950/25 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                              <span className="p-1.5 bg-slate-900/90 text-white rounded-lg shadow-md flex items-center gap-1 text-[10px] font-bold">
-                                <Maximize2 size={12} /> Ampliar
-                              </span>
+                    <>
+                      <div className={`grid gap-4 ${
+                        gridSize === 'small' ? 'grid-cols-3 sm:grid-cols-6 lg:grid-cols-8' : 
+                        gridSize === 'medium' ? 'grid-cols-2 sm:grid-cols-4 lg:grid-cols-6' : 
+                        'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
+                      }`}>
+                        {paginatedPhotos.map((photo: any) => {
+                          const isSelected = selectedPhotos.has(photo.$id);
+                          return (
+                            <div 
+                              key={photo.$id} 
+                              className={`glass-panel border rounded-[20px] overflow-hidden relative cursor-pointer transition-all ${
+                                isSelected ? 'border-brand-gold ring-2 ring-slate-900 bg-white/95 shadow-md' : 'border-white/60 bg-white/70 hover:bg-white/90'
+                              }`}
+                              onClick={() => toggleSelection(photo.$id)}
+                            >
+                              <div className="absolute top-2 left-2 z-10 glass-card/90 p-1 rounded-full backdrop-blur-sm shadow-xs">
+                                <input 
+                                  type="checkbox" 
+                                  checked={isSelected} 
+                                  onChange={() => toggleSelection(photo.$id)} 
+                                  onClick={e => e.stopPropagation()} 
+                                  className="w-4 h-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900 cursor-pointer"
+                                />
+                              </div>
+                              
+                              <div 
+                                className="bg-white aspect-square flex items-center justify-center p-2 relative group"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openFullscreenPhoto(photo.imageUrl, photo.upc, photo.title, false);
+                                }}
+                              >
+                                <img src={photo.imageUrl} alt={photo.upc} className="w-full h-full object-contain" />
+                                <div className="absolute inset-0 bg-slate-950/25 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                  <span className="p-1.5 bg-slate-900/90 text-white rounded-lg shadow-md flex items-center gap-1 text-[10px] font-bold">
+                                    <Maximize2 size={12} /> Ampliar
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="p-4">
+                                <p className="text-sm font-mono font-black text-slate-800">{photo.upc}</p>
+                                {photo.title && (
+                                  <p className="text-xs font-semibold text-slate-700 truncate mt-1" title={photo.title}>
+                                    {photo.title}
+                                  </p>
+                                )}
+                                {photo.description && (
+                                  <p className="text-[10px] text-slate-500 line-clamp-2 mt-0.5" title={photo.description}>
+                                    {photo.description}
+                                  </p>
+                                )}
+                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tight mt-1.5">
+                                  {photo.userName || 'Anónimo'} · {new Date(photo.createdAt || '').toLocaleDateString()}
+                                </p>
+                                <div className="flex gap-2 mt-3">
+                                  <button type="button"
+                                    onClick={e => { e.stopPropagation(); openPreview(displayedPhotos, photo); }}
+                                    className="flex-1 flex items-center justify-center gap-1 py-1.5 glass-card border border-slate-200 text-slate-500 hover:text-slate-900 rounded-full text-[10px] font-bold transition-all">
+                                    <ExternalLink size={12} /> Ver
+                                  </button>
+                                </div>
+                              </div>
                             </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Paginación Inferior */}
+                      {totalPhotosPages > 1 && (
+                        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-6 mt-6 border-t border-slate-200/60">
+                          <div className="text-xs text-slate-500 font-medium">
+                            Página <span className="font-bold text-slate-800">{safePhotosPage}</span> de <span className="font-bold text-slate-800">{totalPhotosPages}</span> · Mostrando {photosStartIndex + 1}–{photosEndIndex} de {displayedPhotos.length} fotos
                           </div>
-                          <div className="p-4">
-                            <p className="text-sm font-mono font-black text-slate-800">{photo.upc}</p>
-                            {photo.title && (
-                              <p className="text-xs font-semibold text-slate-700 truncate mt-1" title={photo.title}>
-                                {photo.title}
-                              </p>
-                            )}
-                            {photo.description && (
-                              <p className="text-[10px] text-slate-500 line-clamp-2 mt-0.5" title={photo.description}>
-                                {photo.description}
-                              </p>
-                            )}
-                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tight mt-1.5">
-                              {photo.userName || 'Anónimo'} · {new Date(photo.createdAt || '').toLocaleDateString()}
-                            </p>
-                            <div className="flex gap-2 mt-3">
-                              <button type="button"
-                                onClick={e => { e.stopPropagation(); openPreview(displayedPhotos, photo); }}
-                                className="flex-1 flex items-center justify-center gap-1 py-1.5 glass-card border border-slate-200 text-slate-500 hover:text-slate-900 rounded-full text-[10px] font-bold transition-all">
-                                <ExternalLink size={12} /> Ver
-                              </button>
+
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setPhotosCurrentPage(1);
+                                window.scrollTo({ top: 0, behavior: 'smooth' });
+                              }}
+                              disabled={safePhotosPage === 1}
+                              className="p-1.5 rounded-lg border border-slate-200 bg-white/80 text-slate-600 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                              title="Primera página"
+                            >
+                              <ChevronsLeft size={16} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setPhotosCurrentPage(p => Math.max(1, p - 1));
+                                window.scrollTo({ top: 0, behavior: 'smooth' });
+                              }}
+                              disabled={safePhotosPage === 1}
+                              className="p-1.5 rounded-lg border border-slate-200 bg-white/80 text-slate-600 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                              title="Página anterior"
+                            >
+                              <ChevronLeft size={16} />
+                            </button>
+
+                            <div className="flex items-center gap-1 mx-1">
+                              {getPageNumbers(safePhotosPage, totalPhotosPages).map((num, i) =>
+                                num === '...' ? (
+                                  <span key={`bot-dots-${i}`} className="px-1.5 text-xs font-bold text-slate-400 select-none">…</span>
+                                ) : (
+                                  <button
+                                    key={`bot-page-${num}`}
+                                    type="button"
+                                    onClick={() => {
+                                      setPhotosCurrentPage(Number(num));
+                                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                                    }}
+                                    className={`min-w-[32px] h-8 px-2 rounded-lg text-xs font-bold transition-all ${
+                                      safePhotosPage === num
+                                        ? 'bg-slate-900 text-white shadow-sm'
+                                        : 'border border-slate-200 bg-white/80 text-slate-700 hover:bg-slate-100'
+                                    }`}
+                                  >
+                                    {num}
+                                  </button>
+                                )
+                              )}
                             </div>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setPhotosCurrentPage(p => Math.min(totalPhotosPages, p + 1));
+                                window.scrollTo({ top: 0, behavior: 'smooth' });
+                              }}
+                              disabled={safePhotosPage === totalPhotosPages}
+                              className="p-1.5 rounded-lg border border-slate-200 bg-white/80 text-slate-600 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                              title="Página siguiente"
+                            >
+                              <ChevronRight size={16} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setPhotosCurrentPage(totalPhotosPages);
+                                window.scrollTo({ top: 0, behavior: 'smooth' });
+                              }}
+                              disabled={safePhotosPage === totalPhotosPages}
+                              className="p-1.5 rounded-lg border border-slate-200 bg-white/80 text-slate-600 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                              title="Última página"
+                            >
+                              <ChevronsRight size={16} />
+                            </button>
                           </div>
                         </div>
-                      ))}
-                    </div>
+                      )}
+                    </>
                   )}
                 </div>
               </div>

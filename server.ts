@@ -350,22 +350,23 @@ async function startServer() {
   app.get("/api/admin/products", async (req, res) => {
     try {
       const supabase = getSupabaseAdmin();
+      const limitNum = parseInt(req.query.limit as string) || 1000;
       let { data, error } = await supabase
+      .from('products')
+      .select('*')
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false })
+      .limit(limitNum);
+
+    // Si la columna deleted_at aun no existe, listar sin ese filtro
+    if (error && (error.code === '42703' || /deleted_at/i.test(error.message || ''))) {
+      console.warn("[products] deleted_at no existe todavia; listando sin filtro.");
+      ({ data, error } = await supabase
         .from('products')
         .select('*')
-        .is('deleted_at', null)
         .order('created_at', { ascending: false })
-        .limit(100);
-
-      // Si la columna deleted_at aun no existe, listar sin ese filtro
-      if (error && (error.code === '42703' || /deleted_at/i.test(error.message || ''))) {
-        console.warn("[products] deleted_at no existe todavia; listando sin filtro.");
-        ({ data, error } = await supabase
-          .from('products')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(100));
-      }
+        .limit(limitNum));
+    }
 
       if (error) throw error;
       
