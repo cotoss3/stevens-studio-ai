@@ -850,7 +850,7 @@ Responde ÚNICAMENTE un JSON válido con este formato:
       const uniqueUpcs = Array.from(new Set(upcs.map(u => String(u).trim()).filter(u => u.length > 0)));
 
       const supabase = getSupabaseAdmin();
-      const chunkSize = 10000;
+      const chunkSize = 1000;
       let totalInserted = 0;
       
       for (let i = 0; i < uniqueUpcs.length; i += chunkSize) {

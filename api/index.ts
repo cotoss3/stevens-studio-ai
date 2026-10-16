@@ -781,7 +781,8 @@ app.post("/api/admin/upload-upcs", async (req, res) => {
     }
 
     const supabase = getSupabaseAdmin();
-    const rows = upcs.map((u: any) => ({ upc: String(u).trim() })).filter(r => r.upc.length > 0);
+    const uniqueUpcs = Array.from(new Set(upcs.map((u: any) => String(u).trim()).filter((u: string) => u.length > 0)));
+    const rows = uniqueUpcs.map(u => ({ upc: u }));
 
     const chunkSize = 1000;
     let totalInserted = 0;

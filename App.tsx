@@ -46,6 +46,52 @@ import type { ZipEntry } from './services/zipUtils';
 
 const DEFAULT_BUCKET_NAME = 'product-photos';
 
+/**
+ * Extrae de forma inteligente únicamente los códigos UPC/barras válidos de cualquier texto,
+ * archivo CSV, TXT o copiado directo de Excel / Supabase.
+ * Ignora filas de encabezado (UPC, fecha, barcode), marcas de tiempo, fechas, saltos de línea y basura.
+ */
+function extractUpcsFromRawText(text: string): string[] {
+  if (!text || !text.trim()) return [];
+  const lines = text.split(/[\r\n]+/);
+  const result: string[] = [];
+  
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line) continue;
+    
+    // Ignorar encabezados comunes
+    if (/^(upc|c[oó]digo|barcode|item|producto|sku|id)[\s,;\t]/i.test(line) || /^(upc|c[oó]digo|barcode|item|producto|sku|id)$/i.test(line)) {
+      continue;
+    }
+
+    // Si tiene columnas separadas por tabulación, coma, punto y coma o 2+ espacios (como lo que pega Supabase o Excel)
+    const parts = line.split(/[\t,;]|\s{2,}/);
+    if (parts.length > 1) {
+      const first = parts[0].trim().replace(/^["']|["']$/g, '');
+      // Asegurarse de que el primer valor no sea una fecha (como 2026-10-15)
+      if (first && !/^\d{4}-\d{2}-\d{2}/.test(first) && first.length >= 3 && first.length <= 32) {
+        result.push(first);
+        continue;
+      }
+    }
+
+    // Si es una sola línea con código o varios códigos separados por espacios
+    const tokens = line.split(/\s+/).map(t => t.trim().replace(/^["']|["']$/g, ''));
+    for (const t of tokens) {
+      // Filtrar fechas (ej: 2026-10-15), horas (ej: 21:04:49.842079+00) y basura
+      if (!t || /^\d{4}-\d{2}-\d{2}/.test(t) || /^\d{2}:\d{2}/.test(t) || /^\+\d{2}/.test(t)) {
+        continue;
+      }
+      // Si parece un código de producto (mínimo 3 caracteres alfanuméricos)
+      if (t.length >= 3 && t.length <= 32) {
+        result.push(t);
+      }
+    }
+  }
+
+  return result;
+}
 
 const App: React.FC = () => {
   const [state, setState] = useState<AppState>(() => {
@@ -191,6 +237,24 @@ const App: React.FC = () => {
 
   const [adminErrorMsg, setAdminErrorMsg] = useState<string | null>(null);
   const [adminSuccessMsg, setAdminSuccessMsg] = useState<string | null>(null);
+
+  // UPC Mass Upload States & Progress Bar
+  const [upcProgress, setUpcProgress] = useState<{
+    isActive: boolean;
+    current: number;
+    total: number;
+    percentage: number;
+    currentBatch: number;
+    totalBatches: number;
+    statusText: string;
+    isComplete: boolean;
+    error?: string | null;
+  } | null>(null);
+  const [upcFileSummary, setUpcFileSummary] = useState<{
+    fileName: string;
+    count: number;
+  } | null>(null);
+  const cancelUpcUploadRef = useRef<boolean>(false);
 
   // Sync state with URL on popstate (back/forward buttons)
   useEffect(() => {
@@ -2041,78 +2105,290 @@ const App: React.FC = () => {
                   <div className="space-y-4">
                     <label className="text-[10px] font-black text-slate-500 uppercase block tracking-widest">Carga de Códigos</label>
                     
+                    {/* Tarjeta de Selección de Archivo */}
                     <div className="glass-card p-4 rounded-[20px] border border-white/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div className="flex items-center gap-3 min-w-0">
-                        <div className="p-3 bg-emerald-100 text-emerald-700 rounded-full">
+                        <div className="p-3 bg-emerald-100 text-emerald-700 rounded-full shrink-0">
                           <FileText size={20} />
                         </div>
-                        <div>
-                          <p className="text-sm font-bold text-slate-800">Subir archivo CSV o TXT</p>
-                          <p className="text-[10px] text-slate-500">Recomendado para 350,000+ códigos</p>
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold text-slate-800">Subir archivo CSV, TXT o Excel exportado</p>
+                          <p className="text-[10px] text-slate-500">Recomendado para 35,000+ o cientos de miles de códigos</p>
+                          {upcFileSummary && (
+                            <div className="mt-1.5 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-bold">
+                              <CheckCircle2 size={13} className="text-emerald-600" />
+                              <span>{upcFileSummary.fileName}: <strong>{upcFileSummary.count.toLocaleString('es-PA')}</strong> códigos listos</span>
+                            </div>
+                          )}
                         </div>
                       </div>
                       <input 
                         type="file" 
                         id="upcMassFile" 
                         accept=".txt,.csv" 
-                        className="text-xs max-w-full file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-slate-900 file:text-white hover:file:bg-slate-800 cursor-pointer"
+                        disabled={upcProgress?.isActive}
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) {
+                            setUpcFileSummary(null);
+                            return;
+                          }
+                          try {
+                            const text = await file.text();
+                            const extracted = extractUpcsFromRawText(text);
+                            const unique = Array.from(new Set(extracted));
+                            setUpcFileSummary({
+                              fileName: file.name,
+                              count: unique.length,
+                            });
+                          } catch {
+                            setUpcFileSummary(null);
+                          }
+                        }}
+                        className="text-xs max-w-full file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-slate-900 file:text-white hover:file:bg-slate-800 cursor-pointer disabled:opacity-50"
                       />
                     </div>
 
-                    <div className="text-center text-xs text-slate-400 font-bold uppercase tracking-widest">O pega manualmente:</div>
+                    <div className="text-center text-xs text-slate-400 font-bold uppercase tracking-widest">O pega manualmente los datos:</div>
 
-                    <textarea 
-                      id="upcMassInput"
-                      placeholder="Pega aquí los UPCs separados por coma, espacio o salto de línea..."
-                      className="w-full h-32 glass-input px-4 py-3 rounded-[20px] text-xs text-slate-700 font-mono focus:border-slate-900 outline-none resize-none"
-                    ></textarea>
+                    <div className="space-y-1.5">
+                      <textarea 
+                        id="upcMassInput"
+                        disabled={upcProgress?.isActive}
+                        placeholder="Pega aquí los UPCs o las columnas copiadas de Excel / Supabase (se limpian fechas y encabezados automáticamente)..."
+                        className="w-full h-32 glass-input px-4 py-3 rounded-[20px] text-xs text-slate-700 font-mono focus:border-slate-900 outline-none resize-none disabled:opacity-50"
+                      ></textarea>
+                      <p className="text-[10px] text-slate-400 font-medium px-2">
+                        Tip: Si copiaste columnas con fecha como en Supabase Studio, el sistema detecta y extrae únicamente los números de código.
+                      </p>
+                    </div>
                   </div>
 
-                  <div className="flex flex-col sm:flex-row gap-4">
+                  {/* Barra de progreso en vivo */}
+                  {upcProgress && (
+                    <div className="glass-card border border-white/60 p-5 rounded-[24px] space-y-3 bg-white/80 shadow-md transition-all">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2.5">
+                          {upcProgress.isComplete ? (
+                            <div className="p-2 bg-emerald-100 text-emerald-700 rounded-full">
+                              <CheckCircle2 size={20} />
+                            </div>
+                          ) : upcProgress.error ? (
+                            <div className="p-2 bg-rose-100 text-rose-700 rounded-full">
+                              <AlertCircle size={20} />
+                            </div>
+                          ) : (
+                            <div className="p-2 bg-slate-900 text-white rounded-full">
+                              <Loader2 size={20} className="animate-spin text-white" />
+                            </div>
+                          )}
+                          <div>
+                            <p className="text-sm font-black text-slate-800">
+                              {upcProgress.isComplete
+                                ? '¡Carga de inventario completada!'
+                                : upcProgress.error
+                                ? 'Carga interrumpida'
+                                : 'Procesando e ingresando códigos al inventario...'}
+                            </p>
+                            <p className="text-xs text-slate-500 font-medium mt-0.5">
+                              {upcProgress.statusText}
+                            </p>
+                          </div>
+                        </div>
+                        
+                        <div className="text-right">
+                          <span className="text-xl font-black text-slate-900 font-mono">
+                            {upcProgress.percentage}%
+                          </span>
+                          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+                            {upcProgress.current.toLocaleString('es-PA')} / {upcProgress.total.toLocaleString('es-PA')}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Barra de progreso visual con degradado */}
+                      <div className="w-full bg-slate-200 rounded-full h-4 overflow-hidden p-0.5 border border-slate-300 shadow-inner">
+                        <div 
+                          className={`h-full rounded-full transition-all duration-300 ease-out flex items-center justify-end pr-2 ${
+                            upcProgress.isComplete
+                              ? 'bg-emerald-500 shadow-sm'
+                              : upcProgress.error
+                              ? 'bg-rose-500'
+                              : 'bg-gradient-to-r from-slate-900 via-indigo-900 to-slate-900'
+                          }`}
+                          style={{ width: `${Math.max(3, upcProgress.percentage)}%` }}
+                        >
+                          {!upcProgress.isComplete && !upcProgress.error && (
+                            <span className="w-2 h-2 bg-white rounded-full animate-ping inline-block" />
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Info inferior de lote y acciones */}
+                      <div className="flex flex-wrap items-center justify-between gap-2 text-xs pt-1">
+                        <span className="text-slate-500 font-semibold text-[11px]">
+                          Lote {upcProgress.currentBatch} de {upcProgress.totalBatches} ({Math.min(2500, upcProgress.total)} códigos por lote)
+                        </span>
+
+                        <div className="flex items-center gap-2">
+                          {upcProgress.isActive && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (confirm("¿Seguro que deseas detener la carga? Los códigos ya procesados quedarán guardados en el inventario.")) {
+                                  cancelUpcUploadRef.current = true;
+                                }
+                              }}
+                              className="px-3 py-1 bg-rose-50 border border-rose-200 text-rose-700 hover:bg-rose-100 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer"
+                            >
+                              Detener carga
+                            </button>
+                          )}
+                          {upcProgress.isComplete && (
+                            <button
+                              type="button"
+                              onClick={() => setUpcProgress(null)}
+                              className="px-3.5 py-1 bg-emerald-100 border border-emerald-300 text-emerald-800 hover:bg-emerald-200 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer"
+                            >
+                              Aceptar y Limpiar
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Botones de acción */}
+                  <div className="flex flex-wrap items-center gap-4">
                     <button 
-                                            onClick={async () => {
+                      onClick={async () => {
                         const fileInput = document.getElementById('upcMassFile') as HTMLInputElement;
                         const textInput = document.getElementById('upcMassInput') as HTMLTextAreaElement;
-                        let val = textInput.value;
+                        let rawText = textInput ? textInput.value : '';
                         
-                        if (fileInput.files && fileInput.files.length > 0) {
+                        if (fileInput && fileInput.files && fileInput.files.length > 0) {
                           const file = fileInput.files[0];
                           try {
-                            val = await file.text();
+                            rawText = await file.text();
                           } catch (e) {
-                            return alert("Error al leer el archivo.");
+                            return alert("Error al leer el archivo seleccionado.");
                           }
                         }
 
-                        const upcs = val.split(/[\s,]+/).filter(u => u.trim().length > 0);
-                        if(upcs.length === 0) return alert('No hay UPCs para subir. Selecciona un archivo o pega el texto.');
-                        if(!confirm('¿Subir ' + upcs.length + ' códigos al inventario? Esto puede tomar un minuto si son cientos de miles.')) return;
-                        
+                        const extracted = extractUpcsFromRawText(rawText);
+                        const uniqueUpcs = Array.from(new Set(extracted));
+
+                        if (uniqueUpcs.length === 0) {
+                          return alert('No se encontraron códigos UPC válidos para subir. Selecciona un archivo CSV/TXT o pega los códigos en el campo de texto.');
+                        }
+
+                        if (!confirm(`¿Deseas iniciar la carga de ${uniqueUpcs.length.toLocaleString('es-PA')} códigos únicos al inventario?\n\nSe procesará en lotes con barra de progreso en tiempo real.`)) {
+                          return;
+                        }
+
                         setIsAdminActionLoading(true);
+                        setAdminErrorMsg(null);
+                        setAdminSuccessMsg(null);
+                        cancelUpcUploadRef.current = false;
+
+                        const BATCH_SIZE = 2500;
+                        const totalBatches = Math.ceil(uniqueUpcs.length / BATCH_SIZE);
+                        let uploadedSoFar = 0;
+
+                        setUpcProgress({
+                          isActive: true,
+                          current: 0,
+                          total: uniqueUpcs.length,
+                          percentage: 0,
+                          currentBatch: 1,
+                          totalBatches,
+                          statusText: `Iniciando carga de ${uniqueUpcs.length.toLocaleString('es-PA')} códigos...`,
+                          isComplete: false,
+                          error: null,
+                        });
+
                         try {
-                          const res = await fetch('/api/admin/upload-upcs', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ upcs })
-                          });
-                          const json = await res.json();
-                          if(!res.ok) throw new Error(json.error || 'Error subiendo UPCs');
-                          setAdminSuccessMsg(json.message);
-                          if (typeof json.count === 'number') setUpcsCount(json.count);
-                          else loadUpcsCount();
-                          textInput.value = '';
-                          if(fileInput) fileInput.value = '';
-                        } catch(err: any) {
-                          setAdminErrorMsg(err.message);
+                          for (let b = 0; b < totalBatches; b++) {
+                            if (cancelUpcUploadRef.current) {
+                              throw new Error(`Carga detenida por el usuario. Se guardaron ${uploadedSoFar.toLocaleString('es-PA')} de ${uniqueUpcs.length.toLocaleString('es-PA')} códigos.`);
+                            }
+
+                            const start = b * BATCH_SIZE;
+                            const end = Math.min(start + BATCH_SIZE, uniqueUpcs.length);
+                            const batch = uniqueUpcs.slice(start, end);
+                            const batchNum = b + 1;
+
+                            setUpcProgress(prev => prev ? ({
+                              ...prev,
+                              currentBatch: batchNum,
+                              statusText: `Guardando lote ${batchNum} de ${totalBatches} (${(start + 1).toLocaleString('es-PA')} al ${end.toLocaleString('es-PA')})...`,
+                            }) : null);
+
+                            const res = await fetch('/api/admin/upload-upcs', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ upcs: batch })
+                            });
+
+                            const json = await res.json();
+                            if (!res.ok) {
+                              throw new Error(json.error || `Error al procesar lote ${batchNum}`);
+                            }
+
+                            uploadedSoFar = end;
+                            const percentage = Math.round((uploadedSoFar / uniqueUpcs.length) * 100);
+
+                            setUpcProgress(prev => prev ? ({
+                              ...prev,
+                              current: uploadedSoFar,
+                              percentage,
+                              statusText: batchNum === totalBatches
+                                ? '¡Todos los lotes procesados exitosamente!'
+                                : `Lote ${batchNum} de ${totalBatches} completado (${percentage}%)`,
+                            }) : null);
+                          }
+
+                          setUpcProgress(prev => prev ? ({
+                            ...prev,
+                            isActive: false,
+                            isComplete: true,
+                            current: uniqueUpcs.length,
+                            percentage: 100,
+                            statusText: `¡Éxito! Se procesaron ${uniqueUpcs.length.toLocaleString('es-PA')} códigos correctamente.`,
+                          }) : null);
+
+                          setAdminSuccessMsg(`Se procesaron ${uniqueUpcs.length.toLocaleString('es-PA')} códigos correctamente.`);
+                          loadUpcsCount();
+                          if (textInput) textInput.value = '';
+                          if (fileInput) fileInput.value = '';
+                          setUpcFileSummary(null);
+                        } catch (err: any) {
+                          setUpcProgress(prev => prev ? ({
+                            ...prev,
+                            isActive: false,
+                            error: err.message || 'Error durante la carga',
+                            statusText: err.message || 'Ocurrió un error',
+                          }) : null);
+                          setAdminErrorMsg(err.message || 'Error al subir códigos al inventario.');
+                          loadUpcsCount();
                         } finally {
                           setIsAdminActionLoading(false);
                         }
                       }}
-                      disabled={isAdminActionLoading}
-                      className="w-full sm:w-auto px-6 py-3 bg-slate-900 text-white rounded-full text-xs font-bold hover:bg-slate-800 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                      disabled={isAdminActionLoading || upcProgress?.isActive}
+                      className="w-full sm:w-auto px-6 py-3 bg-slate-900 text-white rounded-full text-xs font-bold hover:bg-slate-800 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 shadow-sm cursor-pointer"
                     >
-                      {isAdminActionLoading ? <Loader2 size={14} className="animate-spin" /> : <Database size={14} />}
-                      Subir Códigos al Inventario
+                      {upcProgress?.isActive ? (
+                        <>
+                          <Loader2 size={14} className="animate-spin" />
+                          <span>Subiendo {upcProgress.percentage}%...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Database size={14} />
+                          <span>Subir Códigos al Inventario</span>
+                        </>
+                      )}
                     </button>
                   </div>
 
