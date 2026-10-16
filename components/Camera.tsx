@@ -40,18 +40,36 @@ const Camera: React.FC<CameraProps> = ({ onCapture, label, mode = 'product' }) =
     try {
       setError(null);
       stopCamera();
-      const newStream = await navigator.mediaDevices.getUserMedia({ 
+      const constraints: MediaStreamConstraints = { 
         video: { 
           facingMode: facing,
           width: { ideal: 1920 },
-          height: { ideal: 1080 }
+          height: { ideal: 1080 },
+          // @ts-ignore: focusMode experimental constraint
+          focusMode: { ideal: 'continuous' }
         },
         audio: false 
-      });
+      };
+      const newStream = await navigator.mediaDevices.getUserMedia(constraints);
       streamRef.current = newStream;
       setStream(newStream);
       if (videoRef.current) {
         videoRef.current.srcObject = newStream;
+      }
+
+      // Activar autofocus continuo en el track de video si el dispositivo lo soporta
+      const track = newStream.getVideoTracks()[0];
+      if (track) {
+        try {
+          const capabilities: any = track.getCapabilities ? track.getCapabilities() : {};
+          if (capabilities.focusMode && capabilities.focusMode.includes('continuous')) {
+            await (track as any).applyConstraints({
+              advanced: [{ focusMode: 'continuous' }]
+            });
+          }
+        } catch (e) {
+          console.debug("Autofocus continuo no soportado por este dispositivo:", e);
+        }
       }
     } catch (err: any) {
       console.error("Error accessing camera:", err);
@@ -166,9 +184,9 @@ const Camera: React.FC<CameraProps> = ({ onCapture, label, mode = 'product' }) =
 
             {/* MARCO Y VISOR ENCUADRE SEGÚN EL MODO */}
             {mode === 'upc' ? (
-              // Visor Estilo Escáner de Código de Barras
+              // Visor Estilo Escáner de Código de Barras (100% nítido, sin blur ni oscurecimiento)
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none p-8">
-                <div className="w-full max-w-xs h-40 border-2 border-amber-400/80 rounded-2xl relative bg-black/10 backdrop-blur-[1px] shadow-[0_0_50px_rgba(251,191,36,0.15)] flex items-center justify-center overflow-hidden">
+                <div className="w-full max-w-xs h-40 border-2 border-amber-400 rounded-2xl relative bg-transparent shadow-[0_0_40px_rgba(251,191,36,0.2)] flex items-center justify-center overflow-hidden">
                   {/* Láser de Escáner Animado */}
                   <div className="w-full h-0.5 bg-gradient-to-r from-transparent via-amber-400 to-transparent shadow-[0_0_15px_#f59e0b] animate-[bounce_2s_infinite]" />
                   {/* Esquinas del Escáner */}
@@ -223,9 +241,9 @@ const Camera: React.FC<CameraProps> = ({ onCapture, label, mode = 'product' }) =
 
             {/* MENSAJE DE INDICACIÓN EN LA PARTE INFERIOR DE LA CÁMARA */}
             <div className="absolute bottom-4 left-4 right-4 text-center pointer-events-none">
-              <p className="bg-slate-950/70 text-slate-300 text-xs px-4 py-1.5 rounded-full inline-block backdrop-blur-md border border-slate-800 shadow-md">
+              <p className="bg-slate-950/80 text-slate-200 text-xs px-4 py-1.5 rounded-full inline-block backdrop-blur-md border border-slate-800 shadow-md">
                 {mode === 'upc' 
-                  ? 'Coloque el código de barras dentro del marco para capturar' 
+                  ? 'Mantén la cámara a 15–20 cm de distancia para enfoque nítido' 
                   : 'Centre el producto en una superficie bien iluminada'
                 }
               </p>

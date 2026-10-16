@@ -430,8 +430,8 @@ const App: React.FC = () => {
     }, 10000);
 
     try {
-      // Compress barcode image for fast upload and quick Gemini vision reading
-      const compressedImage = await compressBarcodeImage(image, 800, 0.82);
+      // Compress barcode image with high clarity for barcode line reading
+      const compressedImage = await compressBarcodeImage(image, 1200, 0.88);
 
       const upc = await geminiService.extractUPC(
         compressedImage,
