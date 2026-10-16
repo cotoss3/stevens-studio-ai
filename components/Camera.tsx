@@ -5,9 +5,10 @@ interface CameraProps {
   onCapture: (base64Image: string) => void;
   label: string;
   mode?: 'upc' | 'product';
+  isActive?: boolean;
 }
 
-const Camera: React.FC<CameraProps> = ({ onCapture, label, mode = 'product' }) => {
+const Camera: React.FC<CameraProps> = ({ onCapture, label, mode = 'product', isActive = true }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -78,11 +79,15 @@ const Camera: React.FC<CameraProps> = ({ onCapture, label, mode = 'product' }) =
   }, [facingMode, stopCamera]);
 
   useEffect(() => {
-    startCamera(facingMode);
+    if (isActive) {
+      startCamera(facingMode);
+    } else {
+      stopCamera();
+    }
     return () => {
       stopCamera();
     };
-  }, [facingMode, startCamera, stopCamera]);
+  }, [isActive, facingMode, startCamera, stopCamera]);
 
   const toggleCameraFacing = () => {
     const nextFacing = facingMode === 'environment' ? 'user' : 'environment';

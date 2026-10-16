@@ -255,6 +255,7 @@ const App: React.FC = () => {
     count: number;
   } | null>(null);
   const cancelUpcUploadRef = useRef<boolean>(false);
+  const [cameraKey, setCameraKey] = useState<number>(0);
 
   // Sync state with URL on popstate (back/forward buttons)
   useEffect(() => {
@@ -367,6 +368,7 @@ const App: React.FC = () => {
       try { upcAbortControllerRef.current.abort(); } catch {}
     }
     setState(prev => ({ ...prev, isProcessing: false, error: null }));
+    setCameraKey(k => k + 1);
   };
 
   const handleManualUpcSubmit = async (e?: React.FormEvent) => {
@@ -541,6 +543,21 @@ const App: React.FC = () => {
     }
   };
 
+  const handleScanAnother = () => {
+    if (upcAbortControllerRef.current) {
+      try { upcAbortControllerRef.current.abort(); } catch {}
+    }
+    setState(prev => ({
+      ...prev,
+      error: null,
+      step: AppStep.SCAN_UPC,
+      upcImage: null,
+      upcCode: '',
+      isProcessing: false
+    }));
+    setCameraKey(k => k + 1);
+  };
+
   const reset = () => {
     setState(prev => ({
       ...prev,
@@ -558,6 +575,7 @@ const App: React.FC = () => {
     setLastProductRawImage(null);
     setUploadStatus('idle');
     setProcessingMessage('');
+    setCameraKey(k => k + 1);
   };
 
   // Convert base64 to File object
@@ -2595,6 +2613,9 @@ const App: React.FC = () => {
   }
 
   // ── RENDER: Operador + pantalla de login ──────────────────────────────────
+  const isUpcCameraActive = state.step === AppStep.SCAN_UPC && !state.isProcessing && !showManualUpcModal && !state.error?.startsWith('DUPLICATE_UPC:');
+  const isProductCameraActive = state.step === AppStep.PRODUCT_PHOTO && !state.productImage && !state.isProcessing;
+
   return (
     <div className="min-h-screen flex flex-col items-center p-4 md:p-8 font-sans relative z-0">
       <div className="absolute inset-0 z-[-1] glass-panel opacity-95"></div>
@@ -2830,8 +2851,11 @@ const App: React.FC = () => {
                 <div className="flex gap-2.5 pt-2">
                   <button
                     type="button"
-                    onClick={() => setShowManualUpcModal(false)}
-                    className="flex-1 py-3 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs uppercase tracking-wider rounded-xl transition-all"
+                    onClick={() => {
+                      setShowManualUpcModal(false);
+                      setCameraKey(k => k + 1);
+                    }}
+                    className="flex-1 py-3 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs uppercase tracking-wider rounded-xl transition-all cursor-pointer"
                   >
                     Cancelar
                   </button>
@@ -2857,20 +2881,25 @@ const App: React.FC = () => {
 
         {state.error && state.error.startsWith('DUPLICATE_UPC:') ? (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
-            <div className="bg-white rounded-[32px] p-8 max-w-sm w-full flex flex-col items-center text-center shadow-2xl animate-in zoom-in-95 duration-300">
-              <div className="w-24 h-24 bg-red-100 rounded-full flex items-center justify-center mb-6">
-                <AlertCircle size={48} className="text-red-600" />
+            <div className="bg-white rounded-[32px] p-8 max-w-sm w-full flex flex-col items-center text-center shadow-2xl border border-amber-200/60 animate-in zoom-in-95 duration-300">
+              <div className="w-20 h-20 bg-amber-50 border-2 border-amber-200 rounded-full flex items-center justify-center mb-4 shadow-sm">
+                <CheckCircle2 size={40} className="text-amber-500" />
               </div>
-              <h2 className="text-2xl font-black text-slate-900 mb-2">¡ALTO AHÍ!</h2>
-              <p className="text-sm text-slate-600 mb-6 font-medium">
-                Este producto <span className="font-bold text-slate-900">(UPC: {state.error.split(':')[1]})</span> ya está publicado en la base de datos.<br/><br/>
-                Para evitar trabajo doble, <b>NO</b> debes fotografiarlo.
+              <span className="px-3 py-1 bg-amber-100 text-amber-900 rounded-full text-[10px] font-black uppercase tracking-wider mb-2">
+                Producto en Catálogo
+              </span>
+              <h2 className="text-xl font-black text-slate-900 mb-2">¡Este producto ya está publicado!</h2>
+              <p className="text-xs text-slate-600 mb-6 font-medium leading-relaxed">
+                El código <span className="font-mono font-bold text-slate-900 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">{state.error.split(':')[1]}</span> ya cuenta con fotos y ficha en el catálogo activo.<br/><br/>
+                ¡Excelente! Te ahorraste este artículo. Puedes continuar directamente con el siguiente producto.
               </p>
               <button 
-                onClick={() => setState(prev => ({ ...prev, error: null, step: AppStep.SCAN_UPC, upcImage: null }))} 
-                className="w-full bg-slate-900 text-white font-bold py-4 rounded-full hover:bg-slate-800 transition-colors"
+                type="button"
+                onClick={handleScanAnother} 
+                className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3.5 rounded-full transition-all shadow-md active:scale-95 flex items-center justify-center gap-2 cursor-pointer text-xs uppercase tracking-wider"
               >
-                Entendido, escanear otro
+                <Barcode size={16} className="text-amber-400" />
+                <span>Escanear siguiente producto</span>
               </button>
             </div>
           </div>
@@ -2882,7 +2911,7 @@ const App: React.FC = () => {
                 <p className="text-[10px] font-black uppercase mb-1 tracking-widest text-rose-600">Aviso</p>
                 <p className="text-sm font-bold leading-tight">{state.error}</p>
               </div>
-              <button onClick={() => setState(prev => ({ ...prev, error: null }))} className="glass-panel p-2 rounded-full border border-white/60 text-slate-700">
+              <button onClick={() => { setState(prev => ({ ...prev, error: null })); setCameraKey(k => k + 1); }} className="glass-panel p-2 rounded-full border border-white/60 text-slate-700 cursor-pointer">
                 <X size={16} />
               </button>
             </div>
@@ -2963,7 +2992,13 @@ const App: React.FC = () => {
               <h2 className="text-2xl font-black text-slate-900 tracking-tight uppercase font-display">Paso 1: Identificar UPC</h2>
               <p className="text-slate-500 font-medium text-xs mt-1">Apunta con la cámara al código de barras del producto</p>
             </div>
-            <Camera onCapture={handleCaptureUPC} label="ESCÁNER UPC ACTIVO" mode="upc" />
+            <Camera 
+              key={`upc-camera-${cameraKey}`} 
+              isActive={isUpcCameraActive} 
+              onCapture={handleCaptureUPC} 
+              label="ESCÁNER UPC ACTIVO" 
+              mode="upc" 
+            />
             <button
               type="button"
               onClick={() => {
@@ -2985,7 +3020,16 @@ const App: React.FC = () => {
             {!state.productImage ? (
               <>
                 <div className="w-full flex items-center justify-between mb-8">
-                  <button onClick={() => setState(prev => ({ ...prev, step: AppStep.SCAN_UPC }))} className="p-3 hover:glass-panel rounded-[20px] transition-all text-slate-500"><ArrowLeft size={22} /></button>
+                  <button 
+                    onClick={() => {
+                      setState(prev => ({ ...prev, step: AppStep.SCAN_UPC, upcCode: null, upcImage: null }));
+                      setCameraKey(k => k + 1);
+                    }} 
+                    className="p-3 hover:glass-panel rounded-[20px] transition-all text-slate-500 cursor-pointer"
+                    title="Regresar al escáner UPC"
+                  >
+                    <ArrowLeft size={22} />
+                  </button>
                   <div className="text-center">
                     <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight font-display">Paso 2: Foto de Estudio</h2>
                     <div className="mt-1 flex items-center justify-center gap-2">
@@ -2994,7 +3038,13 @@ const App: React.FC = () => {
                   </div>
                   <div className="w-10" />
                 </div>
-                <Camera onCapture={handleCaptureProduct} label="FOTO DE PRODUCTO (FONDO BLANCO IA)" mode="product" />
+                <Camera 
+                  key={`product-camera-${cameraKey}`} 
+                  isActive={isProductCameraActive} 
+                  onCapture={handleCaptureProduct} 
+                  label="FOTO DE PRODUCTO (FONDO BLANCO IA)" 
+                  mode="product" 
+                />
                 <p className="mt-6 text-[10px] text-slate-500 font-black uppercase tracking-widest text-center">Fondo Blanco Puro • Sin Sombras • Remoción Automática IA</p>
               </>
             ) : (
