@@ -741,26 +741,54 @@ const App: React.FC = () => {
     }));
   };
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     if (!state.productImage || !state.upcCode) return;
-    // Descarga foto 1 como UPC_1.jpg
-    const link1 = document.createElement('a');
-    link1.href = state.productImage;
-    link1.download = `${state.upcCode}_1.jpg`;
-    document.body.appendChild(link1);
-    link1.click();
-    document.body.removeChild(link1);
+    try {
+      // 1. Descargar Foto 1 (_1.jpg)
+      const res1 = await fetch(state.productImage);
+      const blob1 = await res1.blob();
+      const url1 = window.URL.createObjectURL(blob1);
+      const link1 = document.createElement('a');
+      link1.href = url1;
+      link1.download = `${state.upcCode}_1.jpg`;
+      document.body.appendChild(link1);
+      link1.click();
+      document.body.removeChild(link1);
+      setTimeout(() => window.URL.revokeObjectURL(url1), 3000);
 
-    // Si tiene foto 2, descargar como UPC_2.jpg
-    if (state.productImage2) {
-      setTimeout(() => {
-        const link2 = document.createElement('a');
-        link2.href = state.productImage2!;
-        link2.download = `${state.upcCode}_2.jpg`;
-        document.body.appendChild(link2);
-        link2.click();
-        document.body.removeChild(link2);
-      }, 350);
+      // 2. Si tiene Foto 2, descargar como _2.jpg
+      if (state.productImage2) {
+        setTimeout(async () => {
+          try {
+            const res2 = await fetch(state.productImage2!);
+            const blob2 = await res2.blob();
+            const url2 = window.URL.createObjectURL(blob2);
+            const link2 = document.createElement('a');
+            link2.href = url2;
+            link2.download = `${state.upcCode}_2.jpg`;
+            document.body.appendChild(link2);
+            link2.click();
+            document.body.removeChild(link2);
+            setTimeout(() => window.URL.revokeObjectURL(url2), 3000);
+          } catch (e2) {
+            console.warn("Error al descargar foto 2:", e2);
+          }
+        }, 500);
+      }
+    } catch (e) {
+      console.warn("Fallback de descarga directa:", e);
+      const link1 = document.createElement('a');
+      link1.href = state.productImage;
+      link1.download = `${state.upcCode}_1.jpg`;
+      link1.click();
+      if (state.productImage2) {
+        setTimeout(() => {
+          const link2 = document.createElement('a');
+          link2.href = state.productImage2!;
+          link2.download = `${state.upcCode}_2.jpg`;
+          link2.click();
+        }, 500);
+      }
     }
   };
 
@@ -3574,7 +3602,12 @@ const App: React.FC = () => {
         }}
         onRetake={() => {
           setIsFullscreenOpen(false);
-          setState(prev => ({ ...prev, productImage: null }));
+          if (capturingPhotoSlot === 1) {
+            setState(prev => ({ ...prev, productImage: null }));
+          } else {
+            setState(prev => ({ ...prev, productImage2: null }));
+          }
+          setCameraKey(k => k + 1);
         }}
       />
     </div>
