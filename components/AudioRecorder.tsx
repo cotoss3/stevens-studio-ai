@@ -334,41 +334,26 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
         <div className="mt-5 flex flex-col items-center justify-center p-6 bg-slate-950/80 rounded-2xl border border-slate-800/80 space-y-4">
           
           {isRecording ? (
-            <div className="flex flex-col items-center gap-4 animate-fade-in">
-              <div className="relative flex items-center justify-center">
-                <span className="absolute w-24 h-24 bg-red-500/20 rounded-full animate-ping" />
-                <button
-                  onClick={stopRecording}
-                  className="w-20 h-20 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center shadow-lg shadow-red-500/30 transition-transform active:scale-95 z-10"
-                  title="Detener grabación"
-                >
-                  <Square size={28} />
-                </button>
-              </div>
-
+            <div className="flex flex-col items-center gap-2 animate-fade-in py-1">
               <div className="flex items-center gap-2 text-red-400 font-mono text-xl font-bold">
                 <span className="w-3 h-3 rounded-full bg-red-500 animate-pulse" />
                 {formatTime(recordingTime)}
               </div>
-              <p className="text-xs text-slate-400">Grabando... Habla de las características básicas del producto.</p>
+              <p className="text-[11px] text-slate-400">Grabando... Habla de las características básicas del producto.</p>
             </div>
           ) : (
-            <div className="flex flex-col sm:flex-row items-center gap-4 w-full max-w-md">
-              <button
-                onClick={startRecording}
-                disabled={isProcessing}
-                className="flex-1 w-full py-4 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-2xl flex items-center justify-center gap-3 transition-all active:scale-95 shadow-lg shadow-amber-500/20 disabled:opacity-50"
-              >
-                <Mic size={20} />
-                <span>Grabar Nota de Voz</span>
-              </button>
+            <div className="flex items-center justify-between gap-3 w-full max-w-md py-1">
+              <div className="flex items-center gap-2 text-slate-300 text-xs">
+                <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse inline-block" />
+                <span className="font-medium">Toca el botón flotante <Mic size={13} className="inline text-amber-400 mx-0.5" /> a la derecha para hablar</span>
+              </div>
 
               <button
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isProcessing}
-                className="flex-1 w-full py-4 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 font-semibold rounded-2xl flex items-center justify-center gap-3 transition-all active:scale-95 disabled:opacity-50"
+                className="py-2 px-3.5 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-all active:scale-95 disabled:opacity-50 shrink-0"
               >
-                <Upload size={20} className="text-amber-400" />
+                <Upload size={14} className="text-amber-400" />
                 <span>Subir Audio</span>
               </button>
             </div>
