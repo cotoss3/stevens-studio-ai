@@ -1195,25 +1195,7 @@ const App: React.FC = () => {
             }
           }
 
-          // 2. Archivo de texto individual (.txt) con la info del producto
-          const baseName = fileName.lastIndexOf('.') > 0 ? fileName.slice(0, fileName.lastIndexOf('.')) : fileName;
-          const txtFileName = uniqueName(`${baseName}.txt`, used);
-          const individualTxt = [
-            `UPC: ${photo.upc || ''}`,
-            `Título: ${photo.title || 'Sin título'}`,
-            `Descripción: ${photo.description || 'Sin descripción'}`,
-            `Archivo de foto 1: ${fileName}`,
-            fileName2 ? `Archivo de foto 2: ${fileName2}` : '',
-            `Usuario: ${photo.userName || 'Anónimo'}`,
-            `Fecha: ${photo.createdAt ? new Date(photo.createdAt).toLocaleString() : ''}`
-          ].filter(Boolean).join('\r\n');
-
-          entries.push({
-            name: txtFileName,
-            data: new TextEncoder().encode(individualTxt),
-            date: photoDate,
-          });
-
+          // Solo acumulamos los datos para el CSV consolidado de productos
           downloadedProducts.push({
             upc: photo.upc || '',
             title: photo.title || '',
@@ -1230,7 +1212,7 @@ const App: React.FC = () => {
 
       if (entries.length === 0) throw new Error("No se pudo descargar ninguna foto.");
 
-      // 3. Archivo CSV consolidado (con UTF-8 BOM para apertura perfecta en Excel)
+      // Único documento complementario: Archivo CSV consolidado (con UTF-8 BOM para apertura perfecta en Excel)
       const escapeCsv = (val: any) => {
         if (val === null || val === undefined) return '""';
         const str = String(val).replace(/"/g, '""');
@@ -1253,39 +1235,6 @@ const App: React.FC = () => {
       entries.push({
         name: uniqueName('productos.csv', used),
         data: new TextEncoder().encode(csvHeader + csvRows),
-        date: new Date(),
-      });
-
-      // 4. Archivo resumen de texto productos.txt
-      const txtSummary = [
-        '================================================================================',
-        'CATÁLOGO DE PRODUCTOS - STEVENS STUDIO',
-        `Fecha de descarga: ${new Date().toLocaleString()}`,
-        `Total de productos: ${downloadedProducts.length}`,
-        '================================================================================\r\n',
-        ...downloadedProducts.map((p, idx) => [
-          `[${idx + 1}]`,
-          `UPC: ${p.upc}`,
-          `Título: ${p.title || 'Sin título'}`,
-          `Descripción: ${p.description || 'Sin descripción'}`,
-          `Archivo de imagen: ${p.fileName}`,
-          `Usuario: ${p.userName}`,
-          `Fecha de registro: ${p.createdAt}`,
-          '--------------------------------------------------------------------------------'
-        ].join('\r\n'))
-      ].join('\r\n');
-
-      entries.push({
-        name: uniqueName('productos.txt', used),
-        data: new TextEncoder().encode(txtSummary),
-        date: new Date(),
-      });
-
-      // 5. Archivo estructurado JSON productos.json
-      const jsonContent = JSON.stringify(downloadedProducts, null, 2);
-      entries.push({
-        name: uniqueName('productos.json', used),
-        data: new TextEncoder().encode(jsonContent),
         date: new Date(),
       });
 
@@ -1935,16 +1884,16 @@ const App: React.FC = () => {
                       <button 
                         onClick={() => handleDownloadAllZip(displayedPhotos)}
                         disabled={displayedPhotos.length === 0 || isAdminActionLoading}
-                        className="px-3.5 py-1.5 bg-slate-900 border border-slate-900 text-white hover:bg-slate-800 rounded-full text-[10px] font-bold uppercase tracking-wider disabled:opacity-50 transition-all flex items-center gap-1 shadow-sm"
-                        title="Descargar todas las fotos del catálogo en un ZIP consolidado con Excel, TXT y JSON"
+                        className="px-3.5 py-1.5 bg-slate-900 border border-slate-900 text-white hover:bg-slate-800 rounded-full text-[10px] font-bold uppercase tracking-wider disabled:opacity-50 transition-all flex items-center gap-1 shadow-sm cursor-pointer"
+                        title="Descargar todas las fotos del catálogo en un ZIP con fotos (_1 y _2) y el archivo productos.csv"
                       >
                         <Download size={12} /> ZIP Todo ({displayedPhotos.length})
                       </button>
                       <button 
                         onClick={() => handleMassDownload(displayedPhotos)}
                         disabled={selectedPhotos.size === 0 || isAdminActionLoading}
-                        className="px-3.5 py-1.5 bg-emerald-600 border border-emerald-600 text-white hover:bg-emerald-700 rounded-full text-[10px] font-bold uppercase tracking-wider disabled:opacity-50 transition-all flex items-center gap-1 shadow-sm"
-                        title="Descargar las fotos seleccionadas (de cualquier página) en un ZIP consolidado con Excel, TXT y JSON"
+                        className="px-3.5 py-1.5 bg-emerald-600 border border-emerald-600 text-white hover:bg-emerald-700 rounded-full text-[10px] font-bold uppercase tracking-wider disabled:opacity-50 transition-all flex items-center gap-1 shadow-sm cursor-pointer"
+                        title="Descargar las fotos seleccionadas en un ZIP con fotos (_1 y _2) y el archivo productos.csv"
                       >
                         <Download size={12} /> ZIP Selección ({selectedPhotos.size})
                       </button>
@@ -2066,18 +2015,28 @@ const App: React.FC = () => {
                                 className="bg-white aspect-square flex items-center justify-center p-2 relative group"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  openFullscreenPhoto(photo.imageUrl, photo.upc, photo.title, false);
+                                  openPreview(displayedPhotos, photo);
                                 }}
                               >
                                 <img src={photo.imageUrl} alt={photo.upc} className="w-full h-full object-contain" />
+                                {photo.imageUrl2 && (
+                                  <div className="absolute bottom-2 right-2 z-10 bg-slate-900/90 text-amber-400 border border-amber-400/30 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider flex items-center gap-1 shadow-md">
+                                    <span>2 fotos</span>
+                                  </div>
+                                )}
                                 <div className="absolute inset-0 bg-slate-950/25 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
                                   <span className="p-1.5 bg-slate-900/90 text-white rounded-lg shadow-md flex items-center gap-1 text-[10px] font-bold">
-                                    <Maximize2 size={12} /> Ampliar
+                                    <Maximize2 size={12} /> {photo.imageUrl2 ? 'Ver 2 fotos' : 'Ampliar'}
                                   </span>
                                 </div>
                               </div>
                               <div className="p-4">
-                                <p className="text-sm font-mono font-black text-slate-800">{photo.upc}</p>
+                                <div className="flex items-center justify-between gap-1">
+                                  <p className="text-sm font-mono font-black text-slate-800">{photo.upc}</p>
+                                  {photo.imageUrl2 && (
+                                    <span className="text-[8px] font-mono font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">_1 y _2</span>
+                                  )}
+                                </div>
                                 {photo.title && (
                                   <p className="text-xs font-semibold text-slate-700 truncate mt-1" title={photo.title}>
                                     {photo.title}
@@ -2094,8 +2053,14 @@ const App: React.FC = () => {
                                 <div className="flex gap-2 mt-3">
                                   <button type="button"
                                     onClick={e => { e.stopPropagation(); openPreview(displayedPhotos, photo); }}
-                                    className="flex-1 flex items-center justify-center gap-1 py-1.5 glass-card border border-slate-200 text-slate-500 hover:text-slate-900 rounded-full text-[10px] font-bold transition-all">
-                                    <ExternalLink size={12} /> Ver
+                                    className="flex-1 flex items-center justify-center gap-1 py-1.5 glass-card border border-slate-200 text-slate-700 hover:text-slate-950 hover:bg-slate-100 rounded-full text-[10px] font-bold transition-all">
+                                    <ExternalLink size={12} /> {photo.imageUrl2 ? 'Ver Fotos (2)' : 'Ver Foto'}
+                                  </button>
+                                  <button type="button"
+                                    onClick={e => { e.stopPropagation(); downloadSinglePhoto(photo); }}
+                                    className="p-1.5 glass-card border border-slate-200 text-slate-600 hover:text-slate-950 hover:bg-slate-100 rounded-full text-[10px] font-bold transition-all"
+                                    title={photo.imageUrl2 ? "Descargar ambas fotos (_1.jpg y _2.jpg)" : "Descargar foto (_1.jpg)"}>
+                                    <Download size={13} />
                                   </button>
                                 </div>
                               </div>
@@ -2663,27 +2628,33 @@ const App: React.FC = () => {
 
               {/* Selector de Foto 1 / Foto 2 si el producto tiene 2 fotos */}
               {previewPhoto.imageUrl2 && (
-                <div className="flex items-center justify-center gap-2 px-5 py-2.5 bg-slate-100/80 border-b border-slate-200">
+                <div className="flex items-center justify-center gap-3 px-5 py-2.5 bg-slate-100/90 border-b border-slate-200">
                   <button
                     type="button"
                     onClick={() => setPreviewPhotoSlot(1)}
-                    className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                    className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-xs ${
                       previewPhotoSlot === 1
-                        ? 'bg-slate-900 text-white shadow-sm'
-                        : 'bg-white text-slate-700 hover:bg-slate-200 border border-slate-300/80'
+                        ? 'bg-slate-900 text-white ring-2 ring-amber-400/40'
+                        : 'bg-white text-slate-700 hover:bg-slate-200 border border-slate-300'
                     }`}
                   >
+                    <div className="w-4 h-4 rounded overflow-hidden bg-white border border-slate-300 shrink-0">
+                      <img src={previewPhoto.imageUrl} alt="1" className="w-full h-full object-contain" />
+                    </div>
                     <span>Foto 1 (_1.jpg)</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setPreviewPhotoSlot(2)}
-                    className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                    className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-xs ${
                       previewPhotoSlot === 2
-                        ? 'bg-slate-900 text-white shadow-sm'
-                        : 'bg-white text-slate-700 hover:bg-slate-200 border border-slate-300/80'
+                        ? 'bg-slate-900 text-white ring-2 ring-amber-400/40'
+                        : 'bg-white text-slate-700 hover:bg-slate-200 border border-slate-300'
                     }`}
                   >
+                    <div className="w-4 h-4 rounded overflow-hidden bg-white border border-slate-300 shrink-0">
+                      <img src={previewPhoto.imageUrl2} alt="2" className="w-full h-full object-contain" />
+                    </div>
                     <span>Foto 2 (_2.jpg)</span>
                   </button>
                 </div>
