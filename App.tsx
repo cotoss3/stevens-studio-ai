@@ -2886,7 +2886,7 @@ const App: React.FC = () => {
         </div>
       )}
 
-      <main className="w-full max-w-2xl glass-card/95 rounded-[2rem] sm:rounded-[3rem] shadow-2xl shadow-black/60 border border-white/60/80 p-4 sm:p-6 md:p-10 min-h-[480px] sm:min-h-[550px] flex flex-col items-center relative overflow-hidden ring-1 ring-slate-900/10 backdrop-blur-md">
+      <main className="w-full max-w-2xl glass-card/95 rounded-[2rem] sm:rounded-[3rem] shadow-2xl shadow-black/60 border border-white/60/80 p-4 sm:p-6 md:p-10 min-h-[480px] sm:min-h-[550px] flex flex-col items-center relative overflow-visible ring-1 ring-slate-900/10 backdrop-blur-md">
         {state.isProcessing && (
           <div className="absolute inset-0 bg-white/95 backdrop-blur-2xl z-50 flex flex-col items-center justify-center animate-in fade-in duration-300 px-6 sm:px-10 text-center">
             {/* Halo pulsante calmante con icono centrado */}

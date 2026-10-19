@@ -540,16 +540,19 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
         </div>
       )}
 
-      {/* BOTÓN FLOTANTE LATERAL DERECHO (GRABAR / DETENER AUDIO CON MANO DERECHA) */}
-      <div className="fixed bottom-6 right-5 z-[9999] pointer-events-auto">
+      {/* BOTÓN FLOTANTE LATERAL DERECHO (GRABAR / DETENER AUDIO CON MANO DERECHA - FIJO A LA PANTALLA) */}
+      <div 
+        className="fixed bottom-8 right-6 z-[99999] pointer-events-auto"
+        style={{ transform: 'translateZ(0)' }}
+      >
         <button
           type="button"
           onClick={isRecording ? stopRecording : startRecording}
           disabled={isProcessing}
-          className={`w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center shadow-2xl shadow-black active:scale-90 transition-all disabled:opacity-30 disabled:pointer-events-none group backdrop-blur-xl cursor-pointer border-4 ring-4 ${
+          className={`w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center shadow-2xl active:scale-90 transition-all disabled:opacity-30 disabled:pointer-events-none group cursor-pointer border-4 ring-4 ${
             isRecording 
-              ? 'bg-red-950 border-red-500 hover:border-red-400 ring-red-500/30' 
-              : 'bg-slate-900 border-amber-400 hover:border-amber-300 ring-amber-400/30'
+              ? 'bg-red-950 border-red-500 hover:border-red-400 ring-red-500/30 shadow-red-500/40' 
+              : 'bg-slate-900 border-amber-400 hover:border-amber-300 ring-amber-400/30 shadow-black/80'
           }`}
           title={isRecording ? "Detener Grabación" : "Grabar Audio (Mano Derecha)"}
         >
