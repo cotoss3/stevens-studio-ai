@@ -32,6 +32,7 @@ import {
   Maximize2,
   CheckCircle2,
   Eye,
+  Camera as CameraIcon,
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { AppStep, AppState, User } from './types';
