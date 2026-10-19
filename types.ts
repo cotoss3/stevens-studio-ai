@@ -19,6 +19,7 @@ export interface AppState {
   upcCode: string | null;
   upcImage: string | null;
   productImage: string | null;
+  productImage2: string | null;
   audioBase64: string | null;
   transcription: string | null;
   productTitle: string | null;
@@ -33,6 +34,8 @@ export interface Product {
   upc: string;
   imageUrl: string;
   fileId: string;
+  imageUrl2?: string | null;
+  fileId2?: string | null;
   userName?: string;
   createdAt?: string;
   title?: string | null;

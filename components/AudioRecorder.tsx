@@ -14,6 +14,7 @@ interface AudioRecorderProps {
   initialDescription?: string | null;
   initialTranscription?: string | null;
   productImage?: string | null;
+  productImage2?: string | null;
   upcCode?: string | null;
   onViewFullscreen?: (imageUrl: string) => void;
 }
@@ -25,6 +26,7 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
   initialDescription = '',
   initialTranscription = '',
   productImage = null,
+  productImage2 = null,
   upcCode = null,
   onViewFullscreen
 }) => {
@@ -235,11 +237,13 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
       setError("Por favor, ingresa al menos el título o la descripción del producto.");
       return;
     }
+    const finalTitle = title.trim().slice(0, 60);
+    const finalDesc = description.trim().slice(0, 160);
     onAudioProcessed({
       audioBase64: audioBase64 || '',
       transcription,
-      title,
-      description
+      title: finalTitle,
+      description: finalDesc
     });
   };
 
@@ -271,29 +275,58 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
           </div>
         </div>
 
-        {/* VISTA PREVIA DE LA FOTO DEL PRODUCTO APROBADA */}
-        {productImage && (
-          <div 
-            onClick={() => onViewFullscreen?.(productImage)}
-            className="mt-4 p-3 bg-slate-950/80 hover:bg-slate-950 border border-slate-800 hover:border-amber-500/40 rounded-2xl flex items-center justify-between gap-3 cursor-pointer transition-all group shadow-inner"
-            title="Toca para ampliar a pantalla completa"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl overflow-hidden bg-white border border-slate-700 shrink-0 flex items-center justify-center p-0.5 shadow-sm">
-                <img src={productImage} alt="Producto" className="w-full h-full object-contain" />
-              </div>
-              <div className="text-left">
-                <span className="text-[10px] font-black uppercase tracking-wider text-amber-400 flex items-center gap-1">
-                  <Sparkles size={11} /> Foto del Producto Aprobada (1000×1000 px)
+        {/* VISTA PREVIA DE LAS FOTOS DEL PRODUCTO APROBADAS */}
+        {(productImage || productImage2) && (
+          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {productImage && (
+              <div 
+                onClick={() => onViewFullscreen?.(productImage)}
+                className="p-3 bg-slate-950/80 hover:bg-slate-950 border border-slate-800 hover:border-amber-500/40 rounded-2xl flex items-center justify-between gap-3 cursor-pointer transition-all group shadow-inner"
+                title="Toca para ampliar Foto 1 a pantalla completa"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl overflow-hidden bg-white border border-slate-700 shrink-0 flex items-center justify-center p-0.5 shadow-sm">
+                    <img src={productImage} alt="Foto 1" className="w-full h-full object-contain" />
+                  </div>
+                  <div className="text-left">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-amber-400 flex items-center gap-1">
+                      <Sparkles size={11} /> Foto 1 (_1.jpg)
+                    </span>
+                    <p className="text-[11px] font-semibold text-slate-300 group-hover:text-white transition-colors">
+                      1000×1000 px • Principal
+                    </p>
+                  </div>
+                </div>
+                <span className="p-2 rounded-xl bg-slate-800 group-hover:bg-amber-500 group-hover:text-slate-950 text-slate-400 transition-all shadow-sm">
+                  <Maximize2 size={14} />
                 </span>
-                <p className="text-xs font-semibold text-slate-300 group-hover:text-white transition-colors">
-                  Toca aquí para revisar a pantalla completa
-                </p>
               </div>
-            </div>
-            <span className="p-2 rounded-xl bg-slate-800 group-hover:bg-amber-500 group-hover:text-slate-950 text-slate-400 transition-all shadow-sm">
-              <Maximize2 size={15} />
-            </span>
+            )}
+
+            {productImage2 && (
+              <div 
+                onClick={() => onViewFullscreen?.(productImage2)}
+                className="p-3 bg-slate-950/80 hover:bg-slate-950 border border-slate-800 hover:border-amber-500/40 rounded-2xl flex items-center justify-between gap-3 cursor-pointer transition-all group shadow-inner"
+                title="Toca para ampliar Foto 2 a pantalla completa"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl overflow-hidden bg-white border border-slate-700 shrink-0 flex items-center justify-center p-0.5 shadow-sm">
+                    <img src={productImage2} alt="Foto 2" className="w-full h-full object-contain" />
+                  </div>
+                  <div className="text-left">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-amber-400 flex items-center gap-1">
+                      <Sparkles size={11} /> Foto 2 (_2.jpg)
+                    </span>
+                    <p className="text-[11px] font-semibold text-slate-300 group-hover:text-white transition-colors">
+                      1000×1000 px • Detalle/Secundaria
+                    </p>
+                  </div>
+                </div>
+                <span className="p-2 rounded-xl bg-slate-800 group-hover:bg-amber-500 group-hover:text-slate-950 text-slate-400 transition-all shadow-sm">
+                  <Maximize2 size={14} />
+                </span>
+              </div>
+            )}
           </div>
         )}
 
@@ -447,30 +480,44 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
 
           {/* CAMPO DE TÍTULO DEL PRODUCTO */}
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider block">
-              Título del Producto
-            </label>
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider block">
+                Título del Producto
+              </label>
+              <span className={`text-[10px] font-mono font-bold ${title.length > 60 ? 'text-red-400' : title.length >= 50 ? 'text-amber-400' : 'text-slate-400'}`}>
+                {title.length}/60 car.
+              </span>
+            </div>
             <input
               type="text"
+              maxLength={60}
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              onChange={(e) => setTitle(e.target.value.slice(0, 60))}
               placeholder="Ej: Camisa Casual de Algodón Hombre Talla M Azul"
               className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-amber-400 transition-colors"
             />
+            <p className="text-[10px] text-slate-400">Regla Stevens: Máximo 60 caracteres.</p>
           </div>
 
           {/* CAMPO DE DESCRIPCIÓN DETALLADA */}
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider block">
-              Descripción Detallada
-            </label>
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider block">
+                Descripción Detallada
+              </label>
+              <span className={`text-[10px] font-mono font-bold ${description.length > 160 ? 'text-red-400' : description.length >= 140 ? 'text-amber-400' : 'text-slate-400'}`}>
+                {description.length}/160 car.
+              </span>
+            </div>
             <textarea
-              rows={4}
+              rows={3}
+              maxLength={160}
               value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Ej: Producto elaborado en material sintético resistente, ideal para uso diario. Incluye acabados de alta calidad..."
+              onChange={(e) => setDescription(e.target.value.slice(0, 160))}
+              placeholder="Ej: Producto en material resistente de alta calidad, ideal para uso diario con acabados de primera..."
               className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-amber-400 transition-colors resize-none"
             />
+            <p className="text-[10px] text-slate-400">Regla Stevens: Máximo 160 caracteres.</p>
           </div>
 
           {/* TRANSCRIPCIÓN VERBATIM DE IA */}

@@ -376,6 +376,8 @@ async function startServer() {
         upc: p.upc,
         imageUrl: p.image_url,
         fileId: p.file_path, // Storage file path
+        imageUrl2: p.image_url_2 || null,
+        fileId2: p.file_path_2 || null,
         userName: p.user_name,
         createdAt: p.created_at,
         title: p.title || '',
@@ -699,10 +701,10 @@ FUENTES:
 1. Audio del operador (MÁXIMA PRIORIDAD para detalles, color, material, talla y uso).
 2. Foto del producto (para validar marca oficial y empaque si está presente).
 
-INSTRUCCIONES:
-1. Transcribe en "transcription" fielmente lo dicho por el operador.
-2. Genera en "title" un título comercial conciso y atractivo (máximo 12 palabras).
-3. Genera en "description" una descripción profesional para tienda web con los atributos mencionados.
+REGLAS ESTRICTAS E INVIOLABLES DE LONGITUD DE TEXTO (Respétalas SIEMPRE):
+1. "title": Título comercial conciso y atractivo con un MÁXIMO ABSOLUTO DE 60 CARACTERES (<= 60 caracteres).
+2. "description": Descripción profesional para tienda web con los atributos esenciales con un MÁXIMO ABSOLUTO DE 160 CARACTERES (<= 160 caracteres).
+3. "transcription": Transcribe fielmente lo dicho por el operador.
 
 Responde ÚNICAMENTE un JSON válido con este formato:
 {
@@ -734,16 +736,25 @@ Responde ÚNICAMENTE un JSON válido con este formato:
             const textOutput = response.text?.trim() || '';
             try {
               const parsed = JSON.parse(textOutput);
+              let cleanTitle = (parsed.title || 'Producto Catalogado').trim();
+              if (cleanTitle.length > 60) cleanTitle = cleanTitle.substring(0, 60).trim();
+
+              let cleanDesc = (parsed.description || parsed.transcription || '').trim();
+              if (cleanDesc.length > 160) cleanDesc = cleanDesc.substring(0, 160).trim();
+
               return {
                 transcription: parsed.transcription || textOutput,
-                title: parsed.title || 'Producto Catalogado',
-                description: parsed.description || parsed.transcription || ''
+                title: cleanTitle,
+                description: cleanDesc
               };
             } catch (parseErr) {
+              let cleanTitle = 'Producto Catalogado';
+              let cleanDesc = textOutput.trim();
+              if (cleanDesc.length > 160) cleanDesc = cleanDesc.substring(0, 160).trim();
               return {
                 transcription: textOutput,
-                title: 'Producto Catalogado',
-                description: textOutput
+                title: cleanTitle,
+                description: cleanDesc
               };
             }
           }, 2, 800);

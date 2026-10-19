@@ -119,6 +119,7 @@ const App: React.FC = () => {
       upcCode: null,
       upcImage: null,
       productImage: null,
+      productImage2: null,
       audioBase64: null,
       transcription: null,
       productTitle: null,
@@ -480,24 +481,33 @@ const App: React.FC = () => {
     }
   };
 
+  const [capturingPhotoSlot, setCapturingPhotoSlot] = useState<1 | 2>(1);
   const [lastProductRawImage, setLastProductRawImage] = useState<string | null>(null);
+  const [lastProductRawImage2, setLastProductRawImage2] = useState<string | null>(null);
 
   const handleCaptureProduct = async (image: string) => {
-    setLastProductRawImage(image);
-    setProcessingMessage('GENERANDO FOTO E-COMMERCE (FONDO BLANCO)...');
+    const slot = capturingPhotoSlot;
+    if (slot === 1) {
+      setLastProductRawImage(image);
+    } else {
+      setLastProductRawImage2(image);
+    }
+
+    setProcessingMessage(`GENERANDO FOTO ${slot} E-COMMERCE (FONDO BLANCO)...`);
     setState(prev => ({ ...prev, isProcessing: true, error: null }));
     
     try {
       const studioImage = await geminiService.transformToStudioShot(image, (attempt, delayMs) => {
-        setProcessingMessage(`REINTENTANDO CON IA (${attempt}/3) EN ${Math.round(delayMs / 1000)}s...`);
+        setProcessingMessage(`REINTENTANDO FOTO ${slot} CON IA (${attempt}/3) EN ${Math.round(delayMs / 1000)}s...`);
       });
       
-      setProcessingMessage('CENTRANDO PRODUCTO (≥80%) Y AJUSTANDO A 1000x1000 px FONDO BLANCO...');
+      setProcessingMessage(`CENTRANDO FOTO ${slot} (≥80%) Y AJUSTANDO A 1000x1000 px FONDO BLANCO...`);
       const finalResizedImage = await processAndResizeProductImage(studioImage);
 
       setState(prev => ({
         ...prev,
-        productImage: finalResizedImage,
+        productImage: slot === 1 ? finalResizedImage : prev.productImage,
+        productImage2: slot === 2 ? finalResizedImage : prev.productImage2,
         step: AppStep.PRODUCT_PHOTO,
         isProcessing: false
       }));
@@ -522,21 +532,26 @@ const App: React.FC = () => {
   };
 
   const handleUseDirectPhoto = async () => {
-    if (!lastProductRawImage) return;
-    setProcessingMessage('OPTIMIZANDO Y CENTRANDO FOTO A 1000x1000 px FONDO BLANCO...');
+    const slot = capturingPhotoSlot;
+    const rawToUse = slot === 1 ? lastProductRawImage : lastProductRawImage2;
+    if (!rawToUse) return;
+
+    setProcessingMessage(`OPTIMIZANDO Y CENTRANDO FOTO ${slot} A 1000x1000 px FONDO BLANCO...`);
     setState(prev => ({ ...prev, isProcessing: true, error: null }));
     try {
-      const finalResizedImage = await processAndResizeProductImage(lastProductRawImage);
+      const finalResizedImage = await processAndResizeProductImage(rawToUse);
       setState(prev => ({
         ...prev,
-        productImage: finalResizedImage,
+        productImage: slot === 1 ? finalResizedImage : prev.productImage,
+        productImage2: slot === 2 ? finalResizedImage : prev.productImage2,
         step: AppStep.PRODUCT_PHOTO,
         isProcessing: false
       }));
     } catch {
       setState(prev => ({
         ...prev,
-        productImage: lastProductRawImage,
+        productImage: slot === 1 ? rawToUse : prev.productImage,
+        productImage2: slot === 2 ? rawToUse : prev.productImage2,
         step: AppStep.PRODUCT_PHOTO,
         isProcessing: false
       }));
@@ -555,6 +570,7 @@ const App: React.FC = () => {
       upcCode: '',
       isProcessing: false
     }));
+    setCapturingPhotoSlot(1);
     setCameraKey(k => k + 1);
   };
 
@@ -565,6 +581,7 @@ const App: React.FC = () => {
       upcCode: null,
       upcImage: null,
       productImage: null,
+      productImage2: null,
       audioBase64: null,
       transcription: null,
       productTitle: null,
@@ -573,6 +590,8 @@ const App: React.FC = () => {
       error: null
     }));
     setLastProductRawImage(null);
+    setLastProductRawImage2(null);
+    setCapturingPhotoSlot(1);
     setUploadStatus('idle');
     setProcessingMessage('');
     setCameraKey(k => k + 1);
@@ -599,35 +618,66 @@ const App: React.FC = () => {
     setState(prev => ({ ...prev, isProcessing: true, error: null }));
 
     try {
-      const file = base64ToFile(state.productImage, `${state.upcCode}.jpg`);
-      const filePath = `${state.upcCode}_${Date.now()}.jpg`;
+      const ts = Date.now();
+      // Foto 1: obligatoria, convención UPC_1.jpg (con timestamp para cache-busting en storage)
+      const file1 = base64ToFile(state.productImage, `${state.upcCode}_1.jpg`);
+      const filePath1 = `${state.upcCode}_1_${ts}.jpg`;
       
-      // Subir archivo al bucket de almacenamiento
-      const { data: uploadRes, error: uploadErr } = await supabase.storage
+      const { data: uploadRes1, error: uploadErr1 } = await supabase.storage
         .from(DEFAULT_BUCKET_NAME)
-        .upload(filePath, file, {
+        .upload(filePath1, file1, {
           cacheControl: '3600',
           upsert: true
         });
 
-      if (uploadErr) throw uploadErr;
+      if (uploadErr1) throw uploadErr1;
+
+      const { data: { publicUrl: publicUrl1 } } = supabase.storage
+        .from(DEFAULT_BUCKET_NAME)
+        .getPublicUrl(filePath1);
+
+      // Foto 2: opcional, convención UPC_2.jpg
+      let publicUrl2: string | null = null;
+      let filePath2: string | null = null;
+      if (state.productImage2) {
+        setProcessingMessage('GUARDANDO SEGUNDA FOTO DEL PRODUCTO (_2.jpg)...');
+        const file2 = base64ToFile(state.productImage2, `${state.upcCode}_2.jpg`);
+        filePath2 = `${state.upcCode}_2_${ts}.jpg`;
+
+        const { error: uploadErr2 } = await supabase.storage
+          .from(DEFAULT_BUCKET_NAME)
+          .upload(filePath2, file2, {
+            cacheControl: '3600',
+            upsert: true
+          });
+
+        if (uploadErr2) {
+          console.warn("[saveToSupabase] Error al subir foto 2:", uploadErr2);
+        } else {
+          const { data: { publicUrl: pUrl2 } } = supabase.storage
+            .from(DEFAULT_BUCKET_NAME)
+            .getPublicUrl(filePath2);
+          publicUrl2 = pUrl2;
+        }
+      }
 
       setProcessingMessage('REGISTRANDO PRODUCTO Y FICHA EN EL SISTEMA...');
-      
-      // Obtener URL pública de visualización
-      const { data: { publicUrl } } = supabase.storage
-        .from(DEFAULT_BUCKET_NAME)
-        .getPublicUrl(filePath);
 
-      // Insertar producto en la base de datos con información de audio y detalles
+      // Validar regla de caracteres en el título (<= 60) y descripción (<= 160)
+      const safeTitle = state.productTitle ? state.productTitle.trim().slice(0, 60) : null;
+      const safeDesc = state.productDescription ? state.productDescription.trim().slice(0, 160) : null;
+
+      // Insertar producto en la base de datos con información completa
       const productPayload: any = {
         upc: state.upcCode,
-        image_url: publicUrl,
-        file_path: filePath,
+        image_url: publicUrl1,
+        file_path: filePath1,
+        image_url_2: publicUrl2,
+        file_path_2: filePath2,
         user_id: state.user?.id || null,
         user_name: state.user?.name || 'Usuario',
-        title: state.productTitle || null,
-        description: state.productDescription || null,
+        title: safeTitle,
+        description: safeDesc,
         transcription: state.transcription || null,
       };
 
@@ -635,18 +685,29 @@ const App: React.FC = () => {
         .from('products')
         .insert(productPayload);
 
-      // Si las columnas nuevas de audio/detalles aún no existen en Supabase, reintentar sin ellas
-      if (dbErr && (dbErr.code === '42703' || /title|description|transcription/i.test(dbErr.message || ''))) {
-        console.warn("[saveToSupabase] Las columnas title/description/transcription no existen aún en la BDD. Guardando datos básicos.");
-        delete productPayload.title;
-        delete productPayload.description;
-        delete productPayload.transcription;
+      // Fallback si las columnas opcionales (_2 o audio/detalles) aún no existen en la tabla
+      if (dbErr && (dbErr.code === '42703' || /image_url_2|file_path_2|title|description|transcription/i.test(dbErr.message || ''))) {
+        console.warn("[saveToSupabase] Alguna columna extendida no existe aún en la BDD. Reintentando con campos compatibles.");
+        delete productPayload.image_url_2;
+        delete productPayload.file_path_2;
 
-        const { error: fallbackErr } = await supabase
+        let { error: retryErr } = await supabase
           .from('products')
           .insert(productPayload);
-          
-        if (fallbackErr) throw fallbackErr;
+
+        if (retryErr && (retryErr.code === '42703' || /title|description|transcription/i.test(retryErr.message || ''))) {
+          delete productPayload.title;
+          delete productPayload.description;
+          delete productPayload.transcription;
+
+          const { error: fallbackErr } = await supabase
+            .from('products')
+            .insert(productPayload);
+
+          if (fallbackErr) throw fallbackErr;
+        } else if (retryErr) {
+          throw retryErr;
+        }
       } else if (dbErr) {
         throw dbErr;
       }
@@ -681,12 +742,25 @@ const App: React.FC = () => {
 
   const handleDownload = () => {
     if (!state.productImage || !state.upcCode) return;
-    const link = document.createElement('a');
-    link.href = state.productImage;
-    link.download = `${state.upcCode}.jpg`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    // Descarga foto 1 como UPC_1.jpg
+    const link1 = document.createElement('a');
+    link1.href = state.productImage;
+    link1.download = `${state.upcCode}_1.jpg`;
+    document.body.appendChild(link1);
+    link1.click();
+    document.body.removeChild(link1);
+
+    // Si tiene foto 2, descargar como UPC_2.jpg
+    if (state.productImage2) {
+      setTimeout(() => {
+        const link2 = document.createElement('a');
+        link2.href = state.productImage2!;
+        link2.download = `${state.upcCode}_2.jpg`;
+        document.body.appendChild(link2);
+        link2.click();
+        document.body.removeChild(link2);
+      }, 350);
+    }
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -984,29 +1058,60 @@ const App: React.FC = () => {
   // Vista previa de foto (modal, sin salir del catálogo)
   const [previewList, setPreviewList] = useState<any[]>([]);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
+  const [previewPhotoSlot, setPreviewPhotoSlot] = useState<1 | 2>(1);
   const previewPhoto = previewIndex !== null ? previewList[previewIndex] : null;
 
   const openPreview = (photos: any[], photo: any) => {
     const idx = photos.findIndex(p => p.$id === photo.$id);
     setPreviewList(photos);
     setPreviewIndex(idx >= 0 ? idx : 0);
+    setPreviewPhotoSlot(1);
   };
-  const closePreview = () => setPreviewIndex(null);
-  const showPrev = () => setPreviewIndex(i => (i === null ? i : (i - 1 + previewList.length) % previewList.length));
-  const showNext = () => setPreviewIndex(i => (i === null ? i : (i + 1) % previewList.length));
+  const closePreview = () => {
+    setPreviewIndex(null);
+    setPreviewPhotoSlot(1);
+  };
+  const showPrev = () => {
+    setPreviewIndex(i => (i === null ? i : (i - 1 + previewList.length) % previewList.length));
+    setPreviewPhotoSlot(1);
+  };
+  const showNext = () => {
+    setPreviewIndex(i => (i === null ? i : (i + 1) % previewList.length));
+    setPreviewPhotoSlot(1);
+  };
 
   const downloadSinglePhoto = async (photo: any) => {
     try {
+      const upcClean = photo.upc || 'foto';
       const response = await fetch(photo.imageUrl);
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `${photo.upc || 'foto'}.jpg`;
+      link.download = `${upcClean}_1.jpg`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       setTimeout(() => window.URL.revokeObjectURL(url), 2000);
+
+      if (photo.imageUrl2) {
+        setTimeout(async () => {
+          try {
+            const res2 = await fetch(photo.imageUrl2);
+            const blob2 = await res2.blob();
+            const url2 = window.URL.createObjectURL(blob2);
+            const link2 = document.createElement('a');
+            link2.href = url2;
+            link2.download = `${upcClean}_2.jpg`;
+            document.body.appendChild(link2);
+            link2.click();
+            document.body.removeChild(link2);
+            setTimeout(() => window.URL.revokeObjectURL(url2), 2000);
+          } catch (e2) {
+            console.warn("No se pudo descargar la segunda foto:", e2);
+          }
+        }, 400);
+      }
     } catch {
       window.open(photo.imageUrl, '_blank');
     }
@@ -1045,6 +1150,7 @@ const App: React.FC = () => {
         title: string;
         description: string;
         fileName: string;
+        fileName2?: string;
         userName: string;
         createdAt: string;
       }> = [];
@@ -1058,15 +1164,35 @@ const App: React.FC = () => {
           const buffer = await response.arrayBuffer();
           const ext = (photo.imageUrl || '').toLowerCase().includes('.png') ? 'png' : 'jpg';
           const upcClean = photo.upc || 'sin-upc';
-          const fileName = uniqueName(`${upcClean}.${ext}`, used);
+          const fileName = uniqueName(`${upcClean}_1.${ext}`, used);
           const photoDate = photo.createdAt ? new Date(photo.createdAt) : new Date();
 
-          // 1. Imagen del producto
+          // 1. Imagen principal (_1.jpg)
           entries.push({
             name: fileName,
             data: new Uint8Array(buffer),
             date: photoDate,
           });
+
+          // 1b. Imagen secundaria opcional (_2.jpg)
+          let fileName2: string | undefined = undefined;
+          if (photo.imageUrl2) {
+            try {
+              const res2 = await fetch(photo.imageUrl2);
+              if (res2.ok) {
+                const buffer2 = await res2.arrayBuffer();
+                const ext2 = (photo.imageUrl2 || '').toLowerCase().includes('.png') ? 'png' : 'jpg';
+                fileName2 = uniqueName(`${upcClean}_2.${ext2}`, used);
+                entries.push({
+                  name: fileName2,
+                  data: new Uint8Array(buffer2),
+                  date: photoDate,
+                });
+              }
+            } catch (err2) {
+              console.warn(`[zip] Error al descargar foto secundaria de ${upcClean}:`, err2);
+            }
+          }
 
           // 2. Archivo de texto individual (.txt) con la info del producto
           const baseName = fileName.lastIndexOf('.') > 0 ? fileName.slice(0, fileName.lastIndexOf('.')) : fileName;
@@ -1075,10 +1201,11 @@ const App: React.FC = () => {
             `UPC: ${photo.upc || ''}`,
             `Título: ${photo.title || 'Sin título'}`,
             `Descripción: ${photo.description || 'Sin descripción'}`,
-            `Archivo de foto: ${fileName}`,
+            `Archivo de foto 1: ${fileName}`,
+            fileName2 ? `Archivo de foto 2: ${fileName2}` : '',
             `Usuario: ${photo.userName || 'Anónimo'}`,
             `Fecha: ${photo.createdAt ? new Date(photo.createdAt).toLocaleString() : ''}`
-          ].join('\r\n');
+          ].filter(Boolean).join('\r\n');
 
           entries.push({
             name: txtFileName,
@@ -1091,6 +1218,7 @@ const App: React.FC = () => {
             title: photo.title || '',
             description: photo.description || '',
             fileName: fileName,
+            fileName2: fileName2,
             userName: photo.userName || 'Anónimo',
             createdAt: photo.createdAt ? new Date(photo.createdAt).toLocaleString() : ''
           });
@@ -1108,13 +1236,14 @@ const App: React.FC = () => {
         return `"${str}"`;
       };
 
-      const csvHeader = '\uFEFF"UPC","Título","Descripción","Archivo Foto","Usuario","Fecha"\r\n';
+      const csvHeader = '\uFEFF"UPC","Título","Descripción","Archivo Foto 1","Archivo Foto 2","Usuario","Fecha"\r\n';
       const csvRows = downloadedProducts.map(p =>
         [
           escapeCsv(p.upc),
           escapeCsv(p.title),
           escapeCsv(p.description),
           escapeCsv(p.fileName),
+          escapeCsv(p.fileName2 || ''),
           escapeCsv(p.userName),
           escapeCsv(p.createdAt)
         ].join(',')
@@ -2531,10 +2660,38 @@ const App: React.FC = () => {
                 </button>
               </div>
 
+              {/* Selector de Foto 1 / Foto 2 si el producto tiene 2 fotos */}
+              {previewPhoto.imageUrl2 && (
+                <div className="flex items-center justify-center gap-2 px-5 py-2.5 bg-slate-100/80 border-b border-slate-200">
+                  <button
+                    type="button"
+                    onClick={() => setPreviewPhotoSlot(1)}
+                    className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                      previewPhotoSlot === 1
+                        ? 'bg-slate-900 text-white shadow-sm'
+                        : 'bg-white text-slate-700 hover:bg-slate-200 border border-slate-300/80'
+                    }`}
+                  >
+                    <span>Foto 1 (_1.jpg)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewPhotoSlot(2)}
+                    className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                      previewPhotoSlot === 2
+                        ? 'bg-slate-900 text-white shadow-sm'
+                        : 'bg-white text-slate-700 hover:bg-slate-200 border border-slate-300/80'
+                    }`}
+                  >
+                    <span>Foto 2 (_2.jpg)</span>
+                  </button>
+                </div>
+              )}
+
               {/* Imagen */}
               <div className="relative flex-1 min-h-0 bg-white flex items-center justify-center p-4">
                 <img
-                  src={previewPhoto.imageUrl}
+                  src={previewPhotoSlot === 2 && previewPhoto.imageUrl2 ? previewPhoto.imageUrl2 : previewPhoto.imageUrl}
                   alt={previewPhoto.upc}
                   className="max-w-full max-h-[64vh] object-contain"
                 />
@@ -2582,17 +2739,17 @@ const App: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => downloadSinglePhoto(previewPhoto)}
-                  className="flex items-center justify-center gap-1 px-4 py-2 bg-slate-900 text-white rounded-full text-[10px] font-bold uppercase tracking-wider hover:bg-slate-800 transition-all"
+                  className="flex items-center justify-center gap-1 px-4 py-2 bg-slate-900 text-white rounded-full text-[10px] font-bold uppercase tracking-wider hover:bg-slate-800 transition-all cursor-pointer"
                 >
-                  <Download size={12} /> Descargar
+                  <Download size={12} /> Descargar {previewPhoto.imageUrl2 ? 'Ambas Fotos' : 'Foto'}
                 </button>
                 <a
-                  href={previewPhoto.imageUrl}
+                  href={previewPhotoSlot === 2 && previewPhoto.imageUrl2 ? previewPhoto.imageUrl2 : previewPhoto.imageUrl}
                   target="_blank"
                   rel="noreferrer"
                   className="flex items-center justify-center gap-1 px-4 py-2 glass-card border border-slate-200 text-slate-600 hover:text-slate-900 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all"
                 >
-                  <ExternalLink size={12} /> Abrir original
+                  <ExternalLink size={12} /> Abrir original ({previewPhotoSlot === 2 && previewPhoto.imageUrl2 ? '_2.jpg' : '_1.jpg'})
                 </a>
               </div>
             </div>
@@ -2614,7 +2771,7 @@ const App: React.FC = () => {
 
   // ── RENDER: Operador + pantalla de login ──────────────────────────────────
   const isUpcCameraActive = state.step === AppStep.SCAN_UPC && !state.isProcessing && !showManualUpcModal && !state.error?.startsWith('DUPLICATE_UPC:');
-  const isProductCameraActive = state.step === AppStep.PRODUCT_PHOTO && !state.productImage && !state.isProcessing;
+  const isProductCameraActive = state.step === AppStep.PRODUCT_PHOTO && (capturingPhotoSlot === 1 ? !state.productImage : !state.productImage2) && !state.isProcessing;
 
   return (
     <div className="min-h-screen flex flex-col items-center p-4 md:p-8 font-sans relative z-0">
@@ -3014,75 +3171,114 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* Paso 2: Product Photo */}
+        {/* Paso 2: Product Photo (Foto 1 obligatoria + Foto 2 opcional) */}
         {state.step === AppStep.PRODUCT_PHOTO && (
           <div className="w-full flex flex-col items-center animate-in fade-in slide-in-from-bottom-6 duration-500">
-            {!state.productImage ? (
-              <>
-                <div className="w-full flex items-center justify-between mb-8">
-                  <button 
-                    onClick={() => {
-                      setState(prev => ({ ...prev, step: AppStep.SCAN_UPC, upcCode: null, upcImage: null }));
-                      setCameraKey(k => k + 1);
-                    }} 
-                    className="p-3 hover:glass-panel rounded-[20px] transition-all text-slate-500 cursor-pointer"
-                    title="Regresar al escáner UPC"
-                  >
-                    <ArrowLeft size={22} />
-                  </button>
-                  <div className="text-center">
-                    <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight font-display">Paso 2: Foto de Estudio</h2>
-                    <div className="mt-1 flex items-center justify-center gap-2">
-                      <span className="text-slate-900 font-mono font-black text-[10px] bg-slate-900/10 px-3 py-1 rounded-full border border-brand-gold/30">UPC: {state.upcCode}</span>
-                    </div>
-                  </div>
-                  <div className="w-10" />
+            {/* Header del Paso 2 con selector de Foto 1 / Foto 2 */}
+            <div className="w-full flex items-center justify-between mb-6">
+              <button 
+                onClick={() => {
+                  setState(prev => ({ ...prev, step: AppStep.SCAN_UPC, upcCode: null, upcImage: null }));
+                  setCameraKey(k => k + 1);
+                }} 
+                className="p-3 hover:glass-panel rounded-[20px] transition-all text-slate-500 cursor-pointer"
+                title="Regresar al escáner UPC"
+              >
+                <ArrowLeft size={22} />
+              </button>
+              <div className="text-center">
+                <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight font-display">Paso 2: Fotos de Estudio</h2>
+                <div className="mt-1 flex items-center justify-center gap-2">
+                  <span className="text-slate-900 font-mono font-black text-[10px] bg-slate-900/10 px-3 py-1 rounded-full border border-brand-gold/30">UPC: {state.upcCode}</span>
                 </div>
+              </div>
+              <div className="w-10" />
+            </div>
+
+            {/* Selector de pestañas: Foto 1 (_1.jpg) y Foto 2 (_2.jpg opcional) */}
+            <div className="w-full max-w-md grid grid-cols-2 gap-3 mb-6">
+              <button
+                type="button"
+                onClick={() => setCapturingPhotoSlot(1)}
+                className={`py-3 px-4 rounded-2xl border text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm ${
+                  capturingPhotoSlot === 1
+                    ? 'bg-slate-900 text-white border-amber-400 ring-2 ring-amber-400/30'
+                    : 'bg-white/80 hover:bg-white text-slate-700 border-slate-200'
+                }`}
+              >
+                <CameraIcon size={16} className={state.productImage ? 'text-emerald-500' : 'text-amber-400'} />
+                <span>Foto 1 (_1.jpg)</span>
+                {state.productImage ? (
+                  <CheckCircle2 size={14} className="text-emerald-500 shrink-0 ml-auto" />
+                ) : (
+                  <span className="text-[9px] font-mono uppercase bg-amber-500/20 text-amber-600 px-1.5 py-0.5 rounded-full ml-auto">Req.</span>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setCapturingPhotoSlot(2)}
+                className={`py-3 px-4 rounded-2xl border text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm ${
+                  capturingPhotoSlot === 2
+                    ? 'bg-slate-900 text-white border-amber-400 ring-2 ring-amber-400/30'
+                    : 'bg-white/80 hover:bg-white text-slate-700 border-slate-200'
+                }`}
+              >
+                <CameraIcon size={16} className={state.productImage2 ? 'text-emerald-500' : 'text-slate-400'} />
+                <span>Foto 2 (_2.jpg)</span>
+                {state.productImage2 ? (
+                  <CheckCircle2 size={14} className="text-emerald-500 shrink-0 ml-auto" />
+                ) : (
+                  <span className="text-[9px] font-mono uppercase bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded-full ml-auto">Opcional</span>
+                )}
+              </button>
+            </div>
+
+            {/* Vista condicional: Cámara vs Foto ya tomada para el slot activo */}
+            {((capturingPhotoSlot === 1 && !state.productImage) || (capturingPhotoSlot === 2 && !state.productImage2)) ? (
+              <>
                 <Camera 
-                  key={`product-camera-${cameraKey}`} 
+                  key={`product-camera-${capturingPhotoSlot}-${cameraKey}`} 
                   isActive={isProductCameraActive} 
                   onCapture={handleCaptureProduct} 
-                  label="FOTO DE PRODUCTO (FONDO BLANCO IA)" 
+                  label={`FOTO ${capturingPhotoSlot} (${capturingPhotoSlot === 1 ? 'PRINCIPAL _1.jpg' : 'OPCIONAL _2.jpg'})`} 
                   mode="product" 
                 />
                 <p className="mt-6 text-[10px] text-slate-500 font-black uppercase tracking-widest text-center">Fondo Blanco Puro • Sin Sombras • Remoción Automática IA</p>
               </>
             ) : (
-              /* REVISIÓN INMEDIATA DE LA FOTO DEVUELTA CON OPCIÓN DE PANTALLA COMPLETA */
+              /* REVISIÓN INMEDIATA DE LA FOTO DEL SLOT ACTIVO */
               <div className="w-full flex flex-col items-center animate-in zoom-in-95 duration-300">
-                <div className="w-full flex items-center justify-between mb-6">
-                  <button 
-                    onClick={() => setState(prev => ({ ...prev, productImage: null }))} 
-                    className="p-3 hover:glass-panel rounded-[20px] transition-all text-slate-500 flex items-center gap-1.5 text-xs font-bold"
-                    title="Volver a la cámara"
-                  >
-                    <ArrowLeft size={20} />
-                    <span>Cámara</span>
-                  </button>
-                  <div className="text-center">
-                    <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-emerald-100 border border-emerald-300 text-emerald-800 text-[10px] font-black uppercase tracking-wider mb-1">
-                      <CheckCircle2 size={12} className="text-emerald-600" /> Foto Lista para Revisión
-                    </div>
-                    <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight font-display">Revisión de Calidad</h2>
+                <div className="w-full max-w-md flex items-center justify-between mb-4">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 border border-emerald-300 text-emerald-800 text-[10px] font-black uppercase tracking-wider">
+                    <CheckCircle2 size={12} className="text-emerald-600" /> Foto {capturingPhotoSlot} Lista ({capturingPhotoSlot === 1 ? '_1.jpg' : '_2.jpg'})
                   </div>
-                  <div className="text-right">
-                    <span className="text-slate-900 font-mono font-black text-[10px] bg-slate-900/10 px-3 py-1 rounded-full border border-brand-gold/30">
-                      UPC: {state.upcCode}
-                    </span>
-                  </div>
+
+                  {capturingPhotoSlot === 2 && state.productImage2 && (
+                    <button
+                      type="button"
+                      onClick={() => setState(prev => ({ ...prev, productImage2: null }))}
+                      className="text-xs text-rose-600 hover:text-rose-700 font-bold underline cursor-pointer"
+                    >
+                      Eliminar Foto 2
+                    </button>
+                  )}
                 </div>
 
                 {/* CONTENEDOR DE VISTA PREVIA INTERACTIVA */}
                 <div className="w-full max-w-md bg-white rounded-3xl p-4 sm:p-5 shadow-2xl border-2 border-slate-200/90 flex flex-col items-center relative group">
                   {/* Lienzo cuadrado 1:1 estilo e-commerce */}
                   <div 
-                    onClick={() => openFullscreenPhoto(state.productImage!, state.upcCode, null, true)}
+                    onClick={() => {
+                      const imgToOpen = capturingPhotoSlot === 1 ? state.productImage! : state.productImage2!;
+                      openFullscreenPhoto(imgToOpen, state.upcCode, `Foto ${capturingPhotoSlot} (${capturingPhotoSlot === 1 ? '_1.jpg' : '_2.jpg'})`, true);
+                    }}
                     className="relative w-full aspect-square bg-white rounded-2xl overflow-hidden border border-slate-200/80 cursor-pointer shadow-inner flex items-center justify-center group"
                     title="Toca para ampliar a pantalla completa"
                   >
                     <img 
-                      src={state.productImage} 
-                      alt="Foto procesada" 
+                      src={(capturingPhotoSlot === 1 ? state.productImage! : state.productImage2!)} 
+                      alt={`Foto ${capturingPhotoSlot}`} 
                       className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105" 
                     />
                     
@@ -3099,42 +3295,62 @@ const App: React.FC = () => {
 
                     {/* Badge de dimension estándar */}
                     <div className="absolute bottom-2 left-2 bg-slate-900/80 backdrop-blur-md border border-slate-700 text-white px-2 py-0.5 rounded-md text-[9px] font-mono font-bold">
-                      1000 × 1000 px
+                      {state.upcCode}_{capturingPhotoSlot}.jpg • 1000 × 1000 px
                     </div>
                   </div>
 
                   {/* Botón directo de pantalla completa para máxima claridad */}
                   <button
                     type="button"
-                    onClick={() => openFullscreenPhoto(state.productImage!, state.upcCode, null, true)}
+                    onClick={() => {
+                      const imgToOpen = capturingPhotoSlot === 1 ? state.productImage! : state.productImage2!;
+                      openFullscreenPhoto(imgToOpen, state.upcCode, `Foto ${capturingPhotoSlot} (${capturingPhotoSlot === 1 ? '_1.jpg' : '_2.jpg'})`, true);
+                    }}
                     className="mt-3.5 w-full py-2.5 px-4 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <Maximize2 size={14} className="text-amber-400" />
                     Ampliar a Pantalla Completa (Zoom e Inspección)
                   </button>
 
-                  {/* Checklist de Estándares Visuales */}
-                  <div className="w-full mt-4 pt-3.5 border-t border-slate-100">
-                    <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 text-left mb-2">
-                      Estándares de Calidad Stevens:
-                    </p>
-                    <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-700 font-semibold text-left">
-                      <span className="flex items-center gap-1.5 text-emerald-700 bg-emerald-50 px-2.5 py-1.5 rounded-lg border border-emerald-200/60">
-                        <CheckCircle2 size={13} className="text-emerald-600 shrink-0" />
-                        Fondo Blanco Puro
-                      </span>
-                      <span className="flex items-center gap-1.5 text-emerald-700 bg-emerald-50 px-2.5 py-1.5 rounded-lg border border-emerald-200/60">
-                        <CheckCircle2 size={13} className="text-emerald-600 shrink-0" />
-                        1000 × 1000 px
-                      </span>
-                      <span className="flex items-center gap-1.5 text-emerald-700 bg-emerald-50 px-2.5 py-1.5 rounded-lg border border-emerald-200/60">
-                        <CheckCircle2 size={13} className="text-emerald-600 shrink-0" />
-                        Centrado al ~80%
-                      </span>
-                      <span className="flex items-center gap-1.5 text-emerald-700 bg-emerald-50 px-2.5 py-1.5 rounded-lg border border-emerald-200/60">
-                        <CheckCircle2 size={13} className="text-emerald-600 shrink-0" />
-                        Sin Sombras
-                      </span>
+                  {/* Miniaturas de ambas fotos si existen */}
+                  <div className="w-full mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <div 
+                        onClick={() => setCapturingPhotoSlot(1)}
+                        className={`w-12 h-12 rounded-xl border-2 p-1 bg-white cursor-pointer transition-all ${
+                          capturingPhotoSlot === 1 ? 'border-amber-500 scale-105 shadow-md' : 'border-slate-200 opacity-70 hover:opacity-100'
+                        }`}
+                        title="Ver Foto 1"
+                      >
+                        {state.productImage ? (
+                          <img src={state.productImage} alt="Foto 1" className="w-full h-full object-contain" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-[10px] text-slate-400 font-bold">1</div>
+                        )}
+                      </div>
+
+                      <div 
+                        onClick={() => setCapturingPhotoSlot(2)}
+                        className={`w-12 h-12 rounded-xl border-2 p-1 bg-white cursor-pointer transition-all ${
+                          capturingPhotoSlot === 2 ? 'border-amber-500 scale-105 shadow-md' : 'border-slate-200 opacity-70 hover:opacity-100'
+                        }`}
+                        title="Ver Foto 2"
+                      >
+                        {state.productImage2 ? (
+                          <img src={state.productImage2} alt="Foto 2" className="w-full h-full object-contain" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-[10px] text-slate-400 font-bold">+2</div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="text-right">
+                      <p className="text-[11px] font-bold text-slate-800">
+                        {state.productImage2 ? '2 de 2 fotos listas' : '1 foto lista (2da opcional)'}
+                      </p>
+                      <p className="text-[9px] font-mono text-slate-500">
+                        {state.productImage2 ? `${state.upcCode}_1.jpg y _2.jpg` : `${state.upcCode}_1.jpg`}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -3143,31 +3359,40 @@ const App: React.FC = () => {
                 <div className="w-full max-w-md mt-5 flex flex-col sm:flex-row gap-3">
                   <button
                     type="button"
-                    onClick={() => setState(prev => ({ ...prev, productImage: null }))}
+                    onClick={() => {
+                      if (capturingPhotoSlot === 1) {
+                        setState(prev => ({ ...prev, productImage: null }));
+                      } else {
+                        setState(prev => ({ ...prev, productImage2: null }));
+                      }
+                      setCameraKey(k => k + 1);
+                    }}
                     className="flex-1 py-3.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs uppercase tracking-wider rounded-2xl transition-all border border-slate-300/80 flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <RefreshCw size={14} className="text-slate-500" />
                     Volver a Tomar
                   </button>
 
-                  {lastProductRawImage && (
+                  {/* Botón para tomar la segunda foto si aún no está */}
+                  {capturingPhotoSlot === 1 && !state.productImage2 && (
                     <button
                       type="button"
-                      onClick={() => handleCaptureProduct(lastProductRawImage)}
+                      onClick={() => setCapturingPhotoSlot(2)}
                       className="flex-1 py-3.5 px-4 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs uppercase tracking-wider rounded-2xl transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm"
                     >
-                      <Sparkles size={14} className="text-amber-400" />
-                      Reintentar IA
+                      <CameraIcon size={14} className="text-amber-400" />
+                      Tomar Foto 2 (Opcional)
                     </button>
                   )}
 
                   <button
                     type="button"
                     onClick={() => setState(prev => ({ ...prev, step: AppStep.RECORD_AUDIO }))}
-                    className="flex-1 py-3.5 px-4 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs uppercase tracking-wider rounded-2xl transition-all shadow-lg shadow-amber-500/25 flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+                    disabled={!state.productImage}
+                    className="flex-1 py-3.5 px-4 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs uppercase tracking-wider rounded-2xl transition-all shadow-lg shadow-amber-500/25 flex items-center justify-center gap-2 cursor-pointer active:scale-95 disabled:opacity-50"
                   >
                     <CheckCircle2 size={16} />
-                    Aprobar y Continuar
+                    {state.productImage2 ? 'Continuar con 2 Fotos' : 'Continuar con 1 Foto'}
                   </button>
                 </div>
               </div>
@@ -3188,6 +3413,7 @@ const App: React.FC = () => {
             
             <AudioRecorder
               productImage={state.productImage}
+              productImage2={state.productImage2}
               upcCode={state.upcCode}
               initialTitle={state.productTitle}
               initialDescription={state.productDescription}
@@ -3224,23 +3450,57 @@ const App: React.FC = () => {
             </div>
 
             <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-              {/* VISTA PREVIA IMAGEN */}
-              <div className="flex flex-col items-center">
-                <div 
-                  onClick={() => openFullscreenPhoto(state.productImage!, state.upcCode, state.productTitle, false)}
-                  className="relative w-full aspect-square bg-slate-900 rounded-[2rem] overflow-hidden border-4 border-slate-800 shadow-2xl p-3 bg-white cursor-pointer group"
-                  title="Toca para ampliar a pantalla completa"
-                >
-                  <img src={state.productImage} alt="Clean Product" className="w-full h-full object-contain" />
-                  <div className="absolute inset-0 bg-slate-950/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                    <span className="px-3 py-1.5 rounded-full bg-slate-900/90 text-white text-xs font-bold flex items-center gap-1.5 shadow-lg">
-                      <Maximize2 size={13} /> Ampliar pantalla completa
-                    </span>
+              {/* VISTA PREVIA IMÁGENES (Foto 1 obligatoria + Foto 2 opcional) */}
+              <div className="flex flex-col items-center gap-4">
+                <div className={`w-full grid gap-4 ${state.productImage2 ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                  {/* Foto 1 */}
+                  <div className="flex flex-col items-center">
+                    <div 
+                      onClick={() => openFullscreenPhoto(state.productImage!, state.upcCode, `${state.productTitle || ''} (Foto 1)`, false)}
+                      className="relative w-full aspect-square rounded-[1.8rem] overflow-hidden border-2 border-slate-700 shadow-xl p-2 bg-white cursor-pointer group"
+                      title="Toca para ampliar Foto 1 (_1.jpg)"
+                    >
+                      <img src={state.productImage} alt="Foto 1" className="w-full h-full object-contain" />
+                      <div className="absolute inset-0 bg-slate-950/35 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                        <span className="px-2.5 py-1 rounded-full bg-slate-900/90 text-white text-[11px] font-bold flex items-center gap-1 shadow-md">
+                          <Maximize2 size={12} /> Ampliar
+                        </span>
+                      </div>
+                    </div>
+                    <div className="mt-2 text-center">
+                      <span className="text-[10px] font-mono font-bold text-slate-300 bg-slate-900 px-3 py-1 rounded-full border border-slate-800">
+                        {state.upcCode}_1.jpg
+                      </span>
+                    </div>
                   </div>
+
+                  {/* Foto 2 (si existe) */}
+                  {state.productImage2 && (
+                    <div className="flex flex-col items-center">
+                      <div 
+                        onClick={() => openFullscreenPhoto(state.productImage2!, state.upcCode, `${state.productTitle || ''} (Foto 2)`, false)}
+                        className="relative w-full aspect-square rounded-[1.8rem] overflow-hidden border-2 border-slate-700 shadow-xl p-2 bg-white cursor-pointer group"
+                        title="Toca para ampliar Foto 2 (_2.jpg)"
+                      >
+                        <img src={state.productImage2} alt="Foto 2" className="w-full h-full object-contain" />
+                        <div className="absolute inset-0 bg-slate-950/35 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                          <span className="px-2.5 py-1 rounded-full bg-slate-900/90 text-white text-[11px] font-bold flex items-center gap-1 shadow-md">
+                            <Maximize2 size={12} /> Ampliar
+                          </span>
+                        </div>
+                      </div>
+                      <div className="mt-2 text-center">
+                        <span className="text-[10px] font-mono font-bold text-slate-300 bg-slate-900 px-3 py-1 rounded-full border border-slate-800">
+                          {state.upcCode}_2.jpg
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <div className="mt-3 text-center">
-                  <span className="text-[10px] font-mono font-bold text-slate-400 bg-slate-900 px-3 py-1 rounded-full border border-slate-800">
-                    {state.upcCode}.jpg
+
+                <div className="text-center">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20">
+                    {state.productImage2 ? '✓ 2 Fotografías Listas (1000×1000 px)' : '✓ 1 Fotografía Lista (1000×1000 px)'}
                   </span>
                 </div>
               </div>

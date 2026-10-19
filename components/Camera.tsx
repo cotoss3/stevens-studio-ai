@@ -232,15 +232,6 @@ const Camera: React.FC<CameraProps> = ({ onCapture, label, mode = 'product', isA
                 >
                   <Grid size={16} />
                 </button>
-
-                <button
-                  type="button"
-                  onClick={toggleCameraFacing}
-                  className="p-2.5 rounded-full bg-slate-900/80 hover:bg-slate-800 text-white border border-slate-700 backdrop-blur-md transition-all active:scale-95"
-                  title="Cambiar cámara"
-                >
-                  <RefreshCw size={16} />
-                </button>
               </div>
             </div>
 
@@ -258,27 +249,9 @@ const Camera: React.FC<CameraProps> = ({ onCapture, label, mode = 'product', isA
       </div>
       
       <canvas ref={canvasRef} className="hidden" />
-      <input 
-        ref={fileInputRef}
-        type="file" 
-        accept="image/*" 
-        className="hidden"
-        onChange={handleFileUpload}
-      />
 
-      {/* BARRA DE BOTONES DE ACCIÓN (DISPARADOR & GALERÍA) */}
-      <div className="mt-6 flex items-center justify-center gap-8 w-full max-w-xs">
-        {/* Botón Galería/Subir */}
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          className="p-4 bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 rounded-2xl shadow-lg active:scale-95 transition-all flex flex-col items-center gap-1 group"
-          title="Subir desde la galería"
-        >
-          <Upload size={20} className="group-hover:text-amber-400 transition-colors" />
-          <span className="text-[10px] font-semibold tracking-wider text-slate-400 uppercase">Subir</span>
-        </button>
-
+      {/* BARRA DE BOTÓN DE ACCIÓN (DISPARADOR) */}
+      <div className="mt-6 flex items-center justify-center w-full max-w-xs">
         {/* BOTÓN SHUTTER DE DISPARO */}
         <button
           type="button"
@@ -290,18 +263,6 @@ const Camera: React.FC<CameraProps> = ({ onCapture, label, mode = 'product', isA
           <div className="w-14 h-14 bg-amber-400 group-hover:bg-amber-300 rounded-full flex items-center justify-center text-slate-950 shadow-lg shadow-amber-400/30 group-hover:scale-105 transition-all">
             <CameraIcon size={28} />
           </div>
-        </button>
-
-        {/* Botón Cambiar Cámara */}
-        <button
-          type="button"
-          onClick={toggleCameraFacing}
-          disabled={!!error || !stream}
-          className="p-4 bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 rounded-2xl shadow-lg active:scale-95 transition-all flex flex-col items-center gap-1 group disabled:opacity-30"
-          title="Rotar cámara"
-        >
-          <RefreshCw size={20} className="group-hover:text-amber-400 transition-colors" />
-          <span className="text-[10px] font-semibold tracking-wider text-slate-400 uppercase">Girar</span>
         </button>
       </div>
     </div>
