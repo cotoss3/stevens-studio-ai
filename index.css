@@ -8,12 +8,28 @@
   --color-brand-gold: #111827;
   --color-brand-gold-light: #374151;
   --color-brand-gold-dark: #000000;
-  --color-brand-navy: rgba(248, 249, 250, 0.75);
-  --color-brand-navy-light: rgba(255, 255, 255, 0.85);
+  --color-brand-navy: rgba(248, 249, 250, 0.82);
+  --color-brand-navy-light: rgba(255, 255, 255, 0.92);
+
+  /* Stevens Official Brand Colors */
+  --color-stevens-coral: #E4716B;
+  --color-stevens-teal: #06BAB8;
+  --color-stevens-sky: #6CCAD0;
+  --color-stevens-navy: #0F172A;
 
   --shadow-glass: 0 15px 35px rgba(0, 0, 0, 0.05);
   --shadow-glass-inner: inset 0 1px 1px rgba(255, 255, 255, 0.9), 0 4px 6px rgba(0, 0, 0, 0.02);
   --shadow-glass-input: inset 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.stevens-brand-stripe {
+  height: 4px;
+  width: 100%;
+  background: linear-gradient(90deg, #6CCAD0 0%, #06BAB8 33%, #E4716B 66%, #FFFFFF 100%);
+}
+
+.stevens-logo-dark {
+  filter: brightness(0) saturate(100%) invert(8%) sepia(23%) saturate(1636%) hue-rotate(182deg) brightness(96%) contrast(97%);
 }
 
 body {

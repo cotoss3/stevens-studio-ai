@@ -1447,15 +1447,18 @@ const App: React.FC = () => {
       <div className="min-h-screen flex font-sans glass-panel">
         {/* ── Sidebar (solo escritorio) ─────────────────────────────────────── */}
         <aside className="hidden md:flex w-64 min-h-screen glass-card border-r border-white/60 flex-col shadow-xl shadow-black/30 shrink-0">
-          {/* Logo */}
-          <div className="flex items-center gap-3 p-6 border-b border-white/60">
-            <div className="bg-slate-900 p-2 rounded-full text-brand-navy">
-              <Package size={20} />
+          {/* Logo Stevens */}
+          <div className="p-6 border-b border-white/60">
+            <div className="flex items-center gap-3">
+              <div className="bg-slate-900 px-3 py-2 rounded-2xl shadow-md border border-slate-800 flex items-center justify-center">
+                <img src="/stevens-logo-white.png" alt="Stevens" className="h-6 w-auto object-contain" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-black text-slate-900 leading-tight uppercase tracking-tight font-display">Studio AI</p>
+                <p className="text-[9px] text-[#06BAB8] font-black uppercase tracking-widest mt-0.5">Admin Panel</p>
+              </div>
             </div>
-            <div>
-              <p className="text-sm font-black text-slate-900 leading-none">Stevens Studio AI</p>
-              <p className="text-[9px] text-slate-900 font-bold uppercase tracking-widest mt-0.5">Admin Panel</p>
-            </div>
+            <div className="stevens-brand-stripe rounded-full mt-4 h-1"></div>
           </div>
 
           {/* Nav items */}
@@ -2797,19 +2800,26 @@ const App: React.FC = () => {
     <div className="min-h-screen flex flex-col items-center px-3 py-3 sm:p-4 md:p-8 font-sans relative z-0">
       <div className="absolute inset-0 z-[-1] glass-panel opacity-95"></div>
       
-      {/* Header Compacto y Optimizado para Móvil */}
-      <header className="w-full max-w-4xl mb-4 sm:mb-6 md:mb-8 flex items-center justify-between glass-card/90 px-3 py-2.5 sm:p-4 rounded-2xl sm:rounded-3xl shadow-xl shadow-black/40 border border-white/60/80 ring-1 ring-slate-900/15 backdrop-blur-md">
-        <div className="flex items-center gap-2.5 sm:gap-4">
-          <div className="bg-slate-900 p-2 sm:p-2.5 rounded-xl sm:rounded-[20px] shadow-lg shadow-slate-900/10 text-brand-navy">
-            <Package size={20} className="sm:w-6 sm:h-6" />
+      {/* Header Compacto y Optimizado para Móvil con Branding Stevens */}
+      <header className="w-full max-w-4xl mb-4 sm:mb-6 md:mb-8 glass-card/90 rounded-2xl sm:rounded-3xl shadow-xl shadow-black/40 border border-white/60/80 ring-1 ring-slate-900/15 backdrop-blur-md overflow-hidden">
+        {/* Rayas oficiales de Stevens (#6CCAD0, #06BAB8, #E4716B, #FFFFFF) */}
+        <div className="stevens-brand-stripe"></div>
+
+        <div className="px-3 py-2.5 sm:p-4 flex items-center justify-between">
+          <div className="flex items-center gap-2.5 sm:gap-4">
+            <div className="bg-slate-900 px-3 py-2 rounded-xl sm:rounded-[18px] shadow-lg shadow-slate-900/20 border border-slate-800 flex items-center justify-center">
+              <img src="/stevens-logo-white.png" alt="Stevens" className="h-5 sm:h-6 w-auto object-contain" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-base sm:text-xl font-black text-slate-900 tracking-tight leading-none font-display">Studio AI</h1>
+                <span className="hidden sm:inline-block px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-slate-900 text-amber-400 border border-amber-400/30">v1.9.1</span>
+              </div>
+              <p className="text-[8px] sm:text-[10px] text-slate-600 font-black uppercase tracking-widest mt-0.5 sm:mt-1 flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-[#06BAB8] animate-pulse inline-block"></span> Catalogación E-commerce
+              </p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-base sm:text-xl font-black text-slate-900 tracking-tight leading-none font-display">Stevens Studio AI</h1>
-            <p className="text-[8px] sm:text-[10px] text-slate-900-light/90 font-bold uppercase tracking-widest mt-0.5 sm:mt-1.5 flex items-center gap-1">
-              <Zap size={9} className="text-slate-900 animate-pulse" /> Catalogación
-            </p>
-          </div>
-        </div>
         <div className="flex items-center gap-1.5 sm:gap-3">
           {state.user && (
             <div className="flex items-center gap-2 glass-panel border border-white/60 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full sm:rounded-[20px]">
@@ -2852,6 +2862,7 @@ const App: React.FC = () => {
               </button>
             )}
           </div>
+        </div>
         </div>
       </header>
 
@@ -3138,11 +3149,12 @@ const App: React.FC = () => {
         {state.step === AppStep.LOGIN && (
           <div className="w-full max-w-md flex flex-col items-center animate-in fade-in duration-300">
             <div className="text-center mb-8">
-              <div className="glass-card w-16 h-16 rounded-3xl flex items-center justify-center mx-auto mb-4 border border-brand-gold/20 shadow-lg">
-                <Lock className="text-slate-900" size={32} />
+              <div className="bg-slate-900 px-6 py-4 rounded-3xl inline-flex items-center justify-center mx-auto mb-4 border border-slate-800 shadow-xl shadow-slate-900/30">
+                <img src="/stevens-logo-white.png" alt="Stevens" className="h-8 w-auto object-contain" />
               </div>
+              <div className="stevens-brand-stripe rounded-full max-w-[160px] mx-auto mb-3 h-1"></div>
               <h2 className="text-2xl font-black text-slate-900 tracking-tight uppercase font-display">Inicio de Sesión</h2>
-              <p className="text-slate-500 font-medium text-xs mt-2">Ingresa tus credenciales de Stevens Studio AI</p>
+              <p className="text-slate-600 font-medium text-xs mt-1">Ingresa tus credenciales de Stevens Studio AI</p>
             </div>
             <form onSubmit={handleLogin} className="w-full space-y-4">
               <div>
@@ -3612,13 +3624,15 @@ const App: React.FC = () => {
         )}
       </main>
 
-      <footer className="mt-auto pt-12 pb-8 text-slate-500 text-[10px] font-black uppercase tracking-[0.3em] flex flex-col items-center gap-4">
-        <div className="flex items-center gap-6 glass-card/90 px-8 py-3 rounded-full border border-white/60/80 shadow-md">
-          <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-slate-900 animate-pulse"/> GEMINI 2.5 PRO ENGINE</span>
-          <div className="w-px h-4 bg-slate-800"/>
-          <span className="flex items-center gap-2"><Sparkles size={14} className="text-slate-900"/> STEVENS ECOMMERCE STUDIO</span>
+      <footer className="mt-auto pt-10 pb-6 text-slate-500 text-[10px] font-black uppercase tracking-[0.25em] flex flex-col items-center gap-3">
+        <div className="flex items-center gap-4 glass-card/90 px-6 py-2.5 rounded-full border border-white/60/80 shadow-md">
+          <div className="bg-slate-900 px-2.5 py-1 rounded-lg">
+            <img src="/stevens-logo-white.png" alt="Stevens" className="h-3.5 w-auto object-contain" />
+          </div>
+          <div className="w-px h-3.5 bg-slate-300"/>
+          <span className="flex items-center gap-1.5 text-slate-700 font-bold"><Sparkles size={13} className="text-[#06BAB8]"/> ECOMMERCE STUDIO AI</span>
         </div>
-        <p className="opacity-40">Stevens Panamá &copy; 2026 • Supabase Cloud Secure</p>
+        <p className="opacity-50 text-[9px]">Stevens Panamá &copy; 2026 • Supabase Cloud Secure</p>
       </footer>
 
       {/* MODAL VISOR A PANTALLA COMPLETA CON ZOOM Y ESTÁNDARES */}
