@@ -2774,29 +2774,31 @@ const App: React.FC = () => {
   const isProductCameraActive = state.step === AppStep.PRODUCT_PHOTO && (capturingPhotoSlot === 1 ? !state.productImage : !state.productImage2) && !state.isProcessing;
 
   return (
-    <div className="min-h-screen flex flex-col items-center p-4 md:p-8 font-sans relative z-0">
+    <div className="min-h-screen flex flex-col items-center px-3 py-3 sm:p-4 md:p-8 font-sans relative z-0">
       <div className="absolute inset-0 z-[-1] glass-panel opacity-95"></div>
-      <header className="w-full max-w-4xl mb-8 flex items-center justify-between glass-card/90 p-4 rounded-3xl shadow-xl shadow-black/40 border border-white/60/80 ring-1 ring-slate-900/15 backdrop-blur-md">
-        <div className="flex items-center gap-4">
-          <div className="bg-slate-900 p-2.5 rounded-[20px] shadow-lg shadow-slate-900/10 text-brand-navy">
-            <Package size={24} />
+      
+      {/* Header Compacto y Optimizado para Móvil */}
+      <header className="w-full max-w-4xl mb-4 sm:mb-6 md:mb-8 flex items-center justify-between glass-card/90 px-3 py-2.5 sm:p-4 rounded-2xl sm:rounded-3xl shadow-xl shadow-black/40 border border-white/60/80 ring-1 ring-slate-900/15 backdrop-blur-md">
+        <div className="flex items-center gap-2.5 sm:gap-4">
+          <div className="bg-slate-900 p-2 sm:p-2.5 rounded-xl sm:rounded-[20px] shadow-lg shadow-slate-900/10 text-brand-navy">
+            <Package size={20} className="sm:w-6 sm:h-6" />
           </div>
-          <div className="hidden sm:block">
-            <h1 className="text-xl font-black text-slate-900 tracking-tight leading-none font-display">Stevens Studio AI</h1>
-            <p className="text-[10px] text-slate-900-light/90 font-bold uppercase tracking-widest mt-1.5 flex items-center gap-1">
-              <Zap size={10} className="text-slate-900 animate-pulse" /> Catalogación de Productos
+          <div>
+            <h1 className="text-base sm:text-xl font-black text-slate-900 tracking-tight leading-none font-display">Stevens Studio AI</h1>
+            <p className="text-[8px] sm:text-[10px] text-slate-900-light/90 font-bold uppercase tracking-widest mt-0.5 sm:mt-1.5 flex items-center gap-1">
+              <Zap size={9} className="text-slate-900 animate-pulse" /> Catalogación
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1.5 sm:gap-3">
           {state.user && (
-            <div className="flex items-center gap-3 glass-panel border border-white/60 px-3 py-1.5 rounded-[20px]">
-              <div className="text-right hidden md:block">
+            <div className="flex items-center gap-2 glass-panel border border-white/60 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full sm:rounded-[20px]">
+              <div className="text-right hidden sm:block">
                 <p className="text-[10px] font-black text-slate-900 leading-none">{state.user.name}</p>
                 <p className="text-[8px] font-bold text-slate-500 uppercase tracking-tighter">{state.user.email}</p>
               </div>
-              <div className="w-8 h-8 rounded-full glass-card border border-white/60 shadow-sm flex items-center justify-center text-slate-900">
-                <UserIcon size={16} />
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full glass-card border border-white/60 shadow-sm flex items-center justify-center text-slate-900">
+                <UserIcon size={14} className="sm:w-4 sm:h-4" />
               </div>
             </div>
           )}
@@ -2814,24 +2816,28 @@ const App: React.FC = () => {
                   step: isGoingToAdmin ? AppStep.ADMIN_DASHBOARD : AppStep.SCAN_UPC
                 }));
               }}
-              className="px-4 py-2 bg-slate-900/10 hover:bg-slate-900/25 border border-brand-gold/20 text-slate-900 font-bold text-xs uppercase tracking-wider rounded-[20px] transition-all"
+              className="px-2.5 sm:px-4 py-1.5 sm:py-2 bg-slate-900/10 hover:bg-slate-900/25 border border-brand-gold/20 text-slate-900 font-bold text-[10px] sm:text-xs uppercase tracking-wider rounded-xl sm:rounded-[20px] transition-all cursor-pointer"
             >
-              {state.step === AppStep.ADMIN_DASHBOARD ? 'Modo Escáner' : 'Panel Admin'}
+              {state.step === AppStep.ADMIN_DASHBOARD ? 'Escáner' : 'Admin'}
             </button>
           )}
-          <div className="flex gap-1.5">
+          <div className="flex gap-1">
             {state.user && (
-              <button onClick={logout} className="p-2.5 rounded-[20px] glass-panel text-slate-500 hover:text-red-400 border border-white/60 transition-all">
-                <LogOut size={20} />
+              <button 
+                onClick={logout} 
+                className="p-2 sm:p-2.5 rounded-xl sm:rounded-[20px] glass-panel text-slate-500 hover:text-red-400 border border-white/60 transition-all cursor-pointer"
+                title="Cerrar Sesión"
+              >
+                <LogOut size={16} className="sm:w-5 sm:h-5" />
               </button>
             )}
           </div>
         </div>
       </header>
 
-      {/* Steps indicator */}
+      {/* Indicador de Pasos Móvil y Escritorio */}
       {[AppStep.SCAN_UPC, AppStep.PRODUCT_PHOTO, AppStep.RECORD_AUDIO, AppStep.REVIEW].includes(state.step) && (
-        <div className="w-full max-w-lg mb-8 flex items-center justify-between relative px-2 animate-in fade-in duration-300">
+        <div className="w-full max-w-lg mb-4 sm:mb-8 flex items-center justify-between relative px-2 animate-in fade-in duration-300">
           <div className="absolute top-1/2 left-0 w-full h-0.5 bg-slate-800 -z-10 -translate-y-1/2" />
           {[1, 2, 3, 4].map((s) => {
             const currentStep = state.step === AppStep.SCAN_UPC ? 1 
@@ -2841,15 +2847,15 @@ const App: React.FC = () => {
             const isActive = currentStep >= s;
             const isCurrent = currentStep === s;
             return (
-              <div key={s} className={`w-10 h-10 rounded-full flex items-center justify-center text-xs font-black border-4 transition-all duration-500 ${isCurrent ? 'bg-slate-900 border-brand-gold-light text-brand-navy scale-125 shadow-xl shadow-slate-900/10' : isActive ? 'bg-slate-900-dark border-brand-gold text-brand-navy' : 'glass-card border-white/60 text-slate-500'}`}>
-                {isActive && s < currentStep ? <CheckCircle size={16} /> : s}
+              <div key={s} className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-[10px] sm:text-xs font-black border-2 sm:border-4 transition-all duration-500 ${isCurrent ? 'bg-slate-900 border-brand-gold-light text-brand-navy scale-110 sm:scale-125 shadow-xl shadow-slate-900/10' : isActive ? 'bg-slate-900-dark border-brand-gold text-brand-navy' : 'glass-card border-white/60 text-slate-500'}`}>
+                {isActive && s < currentStep ? <CheckCircle size={14} className="sm:w-4 sm:h-4" /> : s}
               </div>
             );
           })}
         </div>
       )}
 
-      <main className="w-full max-w-2xl glass-card/95 rounded-[3rem] shadow-2xl shadow-black/60 border border-white/60/80 p-6 md:p-10 min-h-[550px] flex flex-col items-center relative overflow-hidden ring-1 ring-slate-900/10 backdrop-blur-md">
+      <main className="w-full max-w-2xl glass-card/95 rounded-[2rem] sm:rounded-[3rem] shadow-2xl shadow-black/60 border border-white/60/80 p-4 sm:p-6 md:p-10 min-h-[480px] sm:min-h-[550px] flex flex-col items-center relative overflow-hidden ring-1 ring-slate-900/10 backdrop-blur-md">
         {state.isProcessing && (
           <div className="absolute inset-0 bg-white/95 backdrop-blur-2xl z-50 flex flex-col items-center justify-center animate-in fade-in duration-300 px-6 sm:px-10 text-center">
             {/* Halo pulsante calmante con icono centrado */}
@@ -3175,61 +3181,61 @@ const App: React.FC = () => {
         {state.step === AppStep.PRODUCT_PHOTO && (
           <div className="w-full flex flex-col items-center animate-in fade-in slide-in-from-bottom-6 duration-500">
             {/* Header del Paso 2 con selector de Foto 1 / Foto 2 */}
-            <div className="w-full flex items-center justify-between mb-6">
+            <div className="w-full flex items-center justify-between mb-4 sm:mb-6">
               <button 
                 onClick={() => {
                   setState(prev => ({ ...prev, step: AppStep.SCAN_UPC, upcCode: null, upcImage: null }));
                   setCameraKey(k => k + 1);
                 }} 
-                className="p-3 hover:glass-panel rounded-[20px] transition-all text-slate-500 cursor-pointer"
+                className="p-2 sm:p-3 hover:glass-panel rounded-xl sm:rounded-[20px] transition-all text-slate-500 cursor-pointer"
                 title="Regresar al escáner UPC"
               >
-                <ArrowLeft size={22} />
+                <ArrowLeft size={20} className="sm:w-[22px] sm:h-[22px]" />
               </button>
               <div className="text-center">
-                <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight font-display">Paso 2: Fotos de Estudio</h2>
-                <div className="mt-1 flex items-center justify-center gap-2">
-                  <span className="text-slate-900 font-mono font-black text-[10px] bg-slate-900/10 px-3 py-1 rounded-full border border-brand-gold/30">UPC: {state.upcCode}</span>
+                <h2 className="text-lg sm:text-2xl font-black text-slate-900 uppercase tracking-tight font-display">Paso 2: Fotos de Estudio</h2>
+                <div className="mt-0.5 sm:mt-1 flex items-center justify-center gap-2">
+                  <span className="text-slate-900 font-mono font-black text-[9px] sm:text-[10px] bg-slate-900/10 px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full border border-brand-gold/30">UPC: {state.upcCode}</span>
                 </div>
               </div>
-              <div className="w-10" />
+              <div className="w-8 sm:w-10" />
             </div>
 
             {/* Selector de pestañas: Foto 1 (_1.jpg) y Foto 2 (_2.jpg opcional) */}
-            <div className="w-full max-w-md grid grid-cols-2 gap-3 mb-6">
+            <div className="w-full max-w-md grid grid-cols-2 gap-2 sm:gap-3 mb-4 sm:mb-6">
               <button
                 type="button"
                 onClick={() => setCapturingPhotoSlot(1)}
-                className={`py-3 px-4 rounded-2xl border text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm ${
+                className={`py-2.5 sm:py-3 px-3 sm:px-4 rounded-xl sm:rounded-2xl border text-[11px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer shadow-sm ${
                   capturingPhotoSlot === 1
                     ? 'bg-slate-900 text-white border-amber-400 ring-2 ring-amber-400/30'
                     : 'bg-white/80 hover:bg-white text-slate-700 border-slate-200'
                 }`}
               >
-                <CameraIcon size={16} className={state.productImage ? 'text-emerald-500' : 'text-amber-400'} />
-                <span>Foto 1 (_1.jpg)</span>
+                <CameraIcon size={14} className={state.productImage ? 'text-emerald-500' : 'text-amber-400'} />
+                <span className="truncate">Foto 1 (_1.jpg)</span>
                 {state.productImage ? (
-                  <CheckCircle2 size={14} className="text-emerald-500 shrink-0 ml-auto" />
+                  <CheckCircle2 size={13} className="text-emerald-500 shrink-0 ml-auto" />
                 ) : (
-                  <span className="text-[9px] font-mono uppercase bg-amber-500/20 text-amber-600 px-1.5 py-0.5 rounded-full ml-auto">Req.</span>
+                  <span className="text-[8px] sm:text-[9px] font-mono uppercase bg-amber-500/20 text-amber-600 px-1 py-0.5 rounded-full ml-auto">Req.</span>
                 )}
               </button>
 
               <button
                 type="button"
                 onClick={() => setCapturingPhotoSlot(2)}
-                className={`py-3 px-4 rounded-2xl border text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm ${
+                className={`py-2.5 sm:py-3 px-3 sm:px-4 rounded-xl sm:rounded-2xl border text-[11px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer shadow-sm ${
                   capturingPhotoSlot === 2
                     ? 'bg-slate-900 text-white border-amber-400 ring-2 ring-amber-400/30'
                     : 'bg-white/80 hover:bg-white text-slate-700 border-slate-200'
                 }`}
               >
-                <CameraIcon size={16} className={state.productImage2 ? 'text-emerald-500' : 'text-slate-400'} />
-                <span>Foto 2 (_2.jpg)</span>
+                <CameraIcon size={14} className={state.productImage2 ? 'text-emerald-500' : 'text-slate-400'} />
+                <span className="truncate">Foto 2 (_2.jpg)</span>
                 {state.productImage2 ? (
-                  <CheckCircle2 size={14} className="text-emerald-500 shrink-0 ml-auto" />
+                  <CheckCircle2 size={13} className="text-emerald-500 shrink-0 ml-auto" />
                 ) : (
-                  <span className="text-[9px] font-mono uppercase bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded-full ml-auto">Opcional</span>
+                  <span className="text-[8px] sm:text-[9px] font-mono uppercase bg-slate-200 text-slate-600 px-1 py-0.5 rounded-full ml-auto">Opc.</span>
                 )}
               </button>
             </div>
@@ -3356,7 +3362,7 @@ const App: React.FC = () => {
                 </div>
 
                 {/* ACCIONES DEL OPERADOR */}
-                <div className="w-full max-w-md mt-5 flex flex-col sm:flex-row gap-3">
+                <div className="w-full max-w-md mt-4 sm:mt-5 flex flex-col sm:flex-row gap-2 sm:gap-3">
                   <button
                     type="button"
                     onClick={() => {
@@ -3367,7 +3373,7 @@ const App: React.FC = () => {
                       }
                       setCameraKey(k => k + 1);
                     }}
-                    className="flex-1 py-3.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs uppercase tracking-wider rounded-2xl transition-all border border-slate-300/80 flex items-center justify-center gap-2 cursor-pointer"
+                    className="w-full sm:flex-1 py-3 sm:py-3.5 px-3 sm:px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs uppercase tracking-wider rounded-xl sm:rounded-2xl transition-all border border-slate-300/80 flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <RefreshCw size={14} className="text-slate-500" />
                     Volver a Tomar
@@ -3378,7 +3384,7 @@ const App: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setCapturingPhotoSlot(2)}
-                      className="flex-1 py-3.5 px-4 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs uppercase tracking-wider rounded-2xl transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+                      className="w-full sm:flex-1 py-3 sm:py-3.5 px-3 sm:px-4 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl sm:rounded-2xl transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm"
                     >
                       <CameraIcon size={14} className="text-amber-400" />
                       Tomar Foto 2 (Opcional)
@@ -3389,7 +3395,7 @@ const App: React.FC = () => {
                     type="button"
                     onClick={() => setState(prev => ({ ...prev, step: AppStep.RECORD_AUDIO }))}
                     disabled={!state.productImage}
-                    className="flex-1 py-3.5 px-4 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs uppercase tracking-wider rounded-2xl transition-all shadow-lg shadow-amber-500/25 flex items-center justify-center gap-2 cursor-pointer active:scale-95 disabled:opacity-50"
+                    className="w-full sm:flex-1 py-3.5 sm:py-3.5 px-4 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl sm:rounded-2xl transition-all shadow-lg shadow-amber-500/25 flex items-center justify-center gap-2 cursor-pointer active:scale-95 disabled:opacity-50"
                   >
                     <CheckCircle2 size={16} />
                     {state.productImage2 ? 'Continuar con 2 Fotos' : 'Continuar con 1 Foto'}
@@ -3564,13 +3570,18 @@ const App: React.FC = () => {
               ) : (
                 <>
                   <button onClick={saveToSupabase} disabled={uploadStatus === 'uploading'}
-                    className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-black py-5 rounded-2xl flex items-center justify-center gap-3 shadow-xl shadow-amber-500/20 transition-all active:scale-95 disabled:opacity-50">
-                    <Package size={24} />
-                    <span className="text-base uppercase tracking-wider font-display">Guardar Producto</span>
+                    className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-black py-4 sm:py-5 rounded-2xl flex items-center justify-center gap-2 sm:gap-3 shadow-xl shadow-amber-500/20 transition-all active:scale-95 disabled:opacity-50 cursor-pointer">
+                    <Package size={20} className="sm:w-6 sm:h-6" />
+                    <span className="text-sm sm:text-base uppercase tracking-wider font-display">Guardar Producto</span>
                   </button>
-                  <div className="grid grid-cols-2 gap-4">
-                    <button onClick={handleDownload} className="glass-panel border border-white/60 text-slate-900 hover:text-slate-900 font-bold py-3.5 rounded-xl flex items-center justify-center gap-2 uppercase text-[10px] tracking-widest hover:bg-slate-800/60 shadow-sm"><Download size={16} /> Descargar Imagen</button>
-                    <button onClick={reset} className="glass-panel border border-white/60 text-slate-500 font-bold py-3.5 rounded-xl flex items-center justify-center gap-2 uppercase text-[10px] tracking-widest hover:bg-slate-800/60 shadow-sm">Cancelar</button>
+                  <div className="grid grid-cols-2 gap-2 sm:gap-4">
+                    <button onClick={handleDownload} className="glass-panel border border-white/60 text-slate-900 hover:text-slate-900 font-bold py-3 sm:py-3.5 px-2 rounded-xl flex items-center justify-center gap-1.5 uppercase text-[9px] sm:text-[10px] tracking-wider hover:bg-slate-800/60 shadow-sm cursor-pointer">
+                      <Download size={14} className="sm:w-4 sm:h-4 text-amber-500" /> 
+                      <span>{state.productImage2 ? 'Descargar Ambas' : 'Descargar Foto'}</span>
+                    </button>
+                    <button onClick={reset} className="glass-panel border border-white/60 text-slate-500 font-bold py-3 sm:py-3.5 px-2 rounded-xl flex items-center justify-center gap-1.5 uppercase text-[9px] sm:text-[10px] tracking-wider hover:bg-slate-800/60 shadow-sm cursor-pointer">
+                      <span>Cancelar</span>
+                    </button>
                   </div>
                 </>
               )}

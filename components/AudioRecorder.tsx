@@ -264,14 +264,14 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
       />
 
       {/* HEADER DE LA SECCIÓN AUDIO */}
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl relative overflow-hidden">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="p-3 bg-amber-500/10 text-amber-400 rounded-2xl border border-amber-500/20">
-            <Mic size={24} />
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl relative overflow-hidden">
+        <div className="flex items-center gap-2.5 sm:gap-3 mb-2">
+          <div className="p-2.5 sm:p-3 bg-amber-500/10 text-amber-400 rounded-xl sm:rounded-2xl border border-amber-500/20 shrink-0">
+            <Mic size={20} className="sm:w-6 sm:h-6" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-white tracking-wide">Paso 3: Audio y Detalles del Producto</h2>
-            <p className="text-xs text-slate-400">Graba una nota de voz corta describiendo el producto. La IA transcribirá el audio y creará la ficha técnica automáticamente.</p>
+            <h2 className="text-base sm:text-lg font-bold text-white tracking-wide">Paso 3: Audio y Detalles</h2>
+            <p className="text-[11px] sm:text-xs text-slate-400">Graba una nota de voz corta describiendo el producto. La IA creará la ficha técnica automáticamente.</p>
           </div>
         </div>
 
@@ -530,13 +530,13 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
             </div>
           )}
 
-          {/* BOTÓN CONTINUAR */}
-          <div className="pt-2 flex items-center justify-end gap-3">
+          {/* BOTONES DE ACCIÓN */}
+          <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2.5 sm:gap-3">
             {onSkip && (
               <button
                 type="button"
                 onClick={onSkip}
-                className="px-5 py-3 text-slate-400 hover:text-slate-200 text-xs font-semibold uppercase tracking-wider"
+                className="w-full sm:w-auto py-3 px-5 text-slate-400 hover:text-slate-200 text-xs font-semibold uppercase tracking-wider text-center cursor-pointer order-2 sm:order-1"
               >
                 Omitir Paso
               </button>
@@ -546,7 +546,7 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
               type="button"
               onClick={handleContinue}
               disabled={isProcessing}
-              className="px-6 py-3.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs uppercase tracking-wider rounded-xl flex items-center gap-2 shadow-lg shadow-amber-500/20 active:scale-95 transition-all disabled:opacity-50"
+              className="w-full sm:w-auto px-6 py-3.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs uppercase tracking-wider rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 active:scale-95 transition-all disabled:opacity-50 cursor-pointer order-1 sm:order-2"
             >
               <span>Continuar a Revisión</span>
               <CheckCircle2 size={16} />
