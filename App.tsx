@@ -744,37 +744,45 @@ const App: React.FC = () => {
   const handleDownload = async () => {
     if (!state.productImage || !state.upcCode) return;
     try {
-      // 1. Descargar Foto 1 (_1.jpg)
+      const upcClean = state.upcCode;
+
+      // Si tiene Foto 2, empaquetamos ambas en un archivo ZIP para evitar que el navegador o móvil bloquee la segunda descarga
+      if (state.productImage2) {
+        setProcessingMessage('PREPARANDO DESCARGA DE AMBAS FOTOS (_1.jpg y _2.jpg)...');
+        const res1 = await fetch(state.productImage);
+        const buf1 = await res1.arrayBuffer();
+
+        const res2 = await fetch(state.productImage2);
+        const buf2 = await res2.arrayBuffer();
+
+        const entries: ZipEntry[] = [
+          { name: `${upcClean}_1.jpg`, data: new Uint8Array(buf1), date: new Date() },
+          { name: `${upcClean}_2.jpg`, data: new Uint8Array(buf2), date: new Date() }
+        ];
+
+        const zipBlob = createZip(entries);
+        const zipUrl = window.URL.createObjectURL(zipBlob);
+        const link = document.createElement('a');
+        link.href = zipUrl;
+        link.download = `${upcClean}_fotos.zip`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setTimeout(() => window.URL.revokeObjectURL(zipUrl), 3000);
+        return;
+      }
+
+      // Si solo tiene Foto 1, descargamos directamente el archivo JPG
       const res1 = await fetch(state.productImage);
       const blob1 = await res1.blob();
       const url1 = window.URL.createObjectURL(blob1);
       const link1 = document.createElement('a');
       link1.href = url1;
-      link1.download = `${state.upcCode}_1.jpg`;
+      link1.download = `${upcClean}_1.jpg`;
       document.body.appendChild(link1);
       link1.click();
       document.body.removeChild(link1);
       setTimeout(() => window.URL.revokeObjectURL(url1), 3000);
-
-      // 2. Si tiene Foto 2, descargar como _2.jpg
-      if (state.productImage2) {
-        setTimeout(async () => {
-          try {
-            const res2 = await fetch(state.productImage2!);
-            const blob2 = await res2.blob();
-            const url2 = window.URL.createObjectURL(blob2);
-            const link2 = document.createElement('a');
-            link2.href = url2;
-            link2.download = `${state.upcCode}_2.jpg`;
-            document.body.appendChild(link2);
-            link2.click();
-            document.body.removeChild(link2);
-            setTimeout(() => window.URL.revokeObjectURL(url2), 3000);
-          } catch (e2) {
-            console.warn("Error al descargar foto 2:", e2);
-          }
-        }, 500);
-      }
     } catch (e) {
       console.warn("Fallback de descarga directa:", e);
       const link1 = document.createElement('a');
@@ -787,7 +795,7 @@ const App: React.FC = () => {
           link2.href = state.productImage2!;
           link2.download = `${state.upcCode}_2.jpg`;
           link2.click();
-        }, 500);
+        }, 600);
       }
     }
   };
@@ -1112,6 +1120,36 @@ const App: React.FC = () => {
   const downloadSinglePhoto = async (photo: any) => {
     try {
       const upcClean = photo.upc || 'foto';
+
+      if (photo.imageUrl2) {
+        // Empaquetar ambas fotos en un .zip para que los navegadores móviles y de escritorio descarguen ambas sin bloqueos
+        const res1 = await fetch(photo.imageUrl);
+        const buf1 = await res1.arrayBuffer();
+
+        const res2 = await fetch(photo.imageUrl2);
+        const buf2 = await res2.arrayBuffer();
+
+        const ext1 = (photo.imageUrl || '').toLowerCase().includes('.png') ? 'png' : 'jpg';
+        const ext2 = (photo.imageUrl2 || '').toLowerCase().includes('.png') ? 'png' : 'jpg';
+
+        const entries: ZipEntry[] = [
+          { name: `${upcClean}_1.${ext1}`, data: new Uint8Array(buf1), date: new Date() },
+          { name: `${upcClean}_2.${ext2}`, data: new Uint8Array(buf2), date: new Date() }
+        ];
+
+        const zipBlob = createZip(entries);
+        const zipUrl = window.URL.createObjectURL(zipBlob);
+        const link = document.createElement('a');
+        link.href = zipUrl;
+        link.download = `${upcClean}_fotos.zip`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setTimeout(() => window.URL.revokeObjectURL(zipUrl), 3000);
+        return;
+      }
+
+      // Descarga directa individual de Foto 1
       const response = await fetch(photo.imageUrl);
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
@@ -1122,26 +1160,8 @@ const App: React.FC = () => {
       link.click();
       document.body.removeChild(link);
       setTimeout(() => window.URL.revokeObjectURL(url), 2000);
-
-      if (photo.imageUrl2) {
-        setTimeout(async () => {
-          try {
-            const res2 = await fetch(photo.imageUrl2);
-            const blob2 = await res2.blob();
-            const url2 = window.URL.createObjectURL(blob2);
-            const link2 = document.createElement('a');
-            link2.href = url2;
-            link2.download = `${upcClean}_2.jpg`;
-            document.body.appendChild(link2);
-            link2.click();
-            document.body.removeChild(link2);
-            setTimeout(() => window.URL.revokeObjectURL(url2), 2000);
-          } catch (e2) {
-            console.warn("No se pudo descargar la segunda foto:", e2);
-          }
-        }, 400);
-      }
-    } catch {
+    } catch (err) {
+      console.warn("Error descargando foto individual:", err);
       window.open(photo.imageUrl, '_blank');
     }
   };
@@ -3362,44 +3382,46 @@ const App: React.FC = () => {
                 </div>
 
                 {/* ACCIONES DEL OPERADOR */}
-                <div className="w-full max-w-md mt-4 sm:mt-5 flex flex-col sm:flex-row gap-2 sm:gap-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (capturingPhotoSlot === 1) {
-                        setState(prev => ({ ...prev, productImage: null }));
-                      } else {
-                        setState(prev => ({ ...prev, productImage2: null }));
-                      }
-                      setCameraKey(k => k + 1);
-                    }}
-                    className="w-full sm:flex-1 py-3 sm:py-3.5 px-3 sm:px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs uppercase tracking-wider rounded-xl sm:rounded-2xl transition-all border border-slate-300/80 flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    <RefreshCw size={14} className="text-slate-500" />
-                    Volver a Tomar
-                  </button>
-
-                  {/* Botón para tomar la segunda foto si aún no está */}
+                <div className="w-full max-w-md mt-4 sm:mt-5 flex flex-col gap-2.5">
+                  {/* Si está en Foto 1 y aún no toma Foto 2, destacamos la opción de Foto 2 primero */}
                   {capturingPhotoSlot === 1 && !state.productImage2 && (
                     <button
                       type="button"
                       onClick={() => setCapturingPhotoSlot(2)}
-                      className="w-full sm:flex-1 py-3 sm:py-3.5 px-3 sm:px-4 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl sm:rounded-2xl transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+                      className="w-full py-3.5 px-4 bg-slate-900 hover:bg-slate-800 text-white font-black text-xs uppercase tracking-wider rounded-xl sm:rounded-2xl transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md border border-amber-400/40"
                     >
-                      <CameraIcon size={14} className="text-amber-400" />
-                      Tomar Foto 2 (Opcional)
+                      <CameraIcon size={16} className="text-amber-400" />
+                      <span>Tomar Foto 2 (_2.jpg Opcional)</span>
                     </button>
                   )}
 
-                  <button
-                    type="button"
-                    onClick={() => setState(prev => ({ ...prev, step: AppStep.RECORD_AUDIO }))}
-                    disabled={!state.productImage}
-                    className="w-full sm:flex-1 py-3.5 sm:py-3.5 px-4 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl sm:rounded-2xl transition-all shadow-lg shadow-amber-500/25 flex items-center justify-center gap-2 cursor-pointer active:scale-95 disabled:opacity-50"
-                  >
-                    <CheckCircle2 size={16} />
-                    {state.productImage2 ? 'Continuar con 2 Fotos' : 'Continuar con 1 Foto'}
-                  </button>
+                  <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (capturingPhotoSlot === 1) {
+                          setState(prev => ({ ...prev, productImage: null }));
+                        } else {
+                          setState(prev => ({ ...prev, productImage2: null }));
+                        }
+                        setCameraKey(k => k + 1);
+                      }}
+                      className="w-full sm:flex-1 py-3 sm:py-3.5 px-3 sm:px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs uppercase tracking-wider rounded-xl sm:rounded-2xl transition-all border border-slate-300/80 flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <RefreshCw size={14} className="text-slate-500" />
+                      Volver a Tomar
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setState(prev => ({ ...prev, step: AppStep.RECORD_AUDIO }))}
+                      disabled={!state.productImage}
+                      className="w-full sm:flex-1 py-3.5 sm:py-3.5 px-4 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl sm:rounded-2xl transition-all shadow-lg shadow-amber-500/25 flex items-center justify-center gap-2 cursor-pointer active:scale-95 disabled:opacity-50"
+                    >
+                      <CheckCircle2 size={16} />
+                      {state.productImage2 ? 'Continuar con 2 Fotos' : 'Continuar con 1 Foto'}
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
@@ -3609,6 +3631,13 @@ const App: React.FC = () => {
         showApprovalControls={fullscreenPhotoData?.showApproval || false}
         onApprove={() => {
           setIsFullscreenOpen(false);
+          if (state.step === AppStep.PRODUCT_PHOTO) {
+            if (capturingPhotoSlot === 1 && !state.productImage2) {
+              // Si aprobó la Foto 1 en pantalla completa y aún no toma la Foto 2, lo pasamos directamente al slot 2
+              setCapturingPhotoSlot(2);
+              return;
+            }
+          }
           setState(prev => ({ ...prev, step: AppStep.RECORD_AUDIO }));
         }}
         onRetake={() => {
