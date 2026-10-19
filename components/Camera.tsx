@@ -235,33 +235,50 @@ const Camera: React.FC<CameraProps> = ({ onCapture, label, mode = 'product', isA
               </div>
             </div>
 
-            {/* MENSAJE DE INDICACIÓN EN LA PARTE INFERIOR DE LA CÁMARA */}
-            <div className="absolute bottom-4 left-4 right-4 text-center pointer-events-none">
-              <p className="bg-slate-950/80 text-slate-200 text-xs px-4 py-1.5 rounded-full inline-block backdrop-blur-md border border-slate-800 shadow-md">
-                {mode === 'upc' 
-                  ? 'Mantén la cámara a 15–20 cm de distancia para enfoque nítido' 
-                  : 'Centre el producto en una superficie bien iluminada'
-                }
-              </p>
-            </div>
-          </>
-        )}
-      </div>
-      
-      <canvas ref={canvasRef} className="hidden" />
+              {/* BOTÓN DISPARADOR INTEGRADO EN LA ESQUINA INFERIOR DERECHA DE LA CÁMARA */}
+              <div className="absolute bottom-4 right-4 z-30 pointer-events-auto">
+                <button
+                  type="button"
+                  onClick={capturePhoto}
+                  disabled={!!error || !stream}
+                  className="w-16 h-16 sm:w-20 sm:h-20 bg-slate-900/90 border-4 border-amber-400 hover:border-amber-300 rounded-full flex items-center justify-center shadow-2xl active:scale-90 transition-all disabled:opacity-30 disabled:pointer-events-none group backdrop-blur-md cursor-pointer ring-4 ring-amber-400/20"
+                  title="Tomar Foto (Mano Derecha)"
+                >
+                  <div className="w-11 h-11 sm:w-14 sm:h-14 bg-amber-400 group-hover:bg-amber-300 rounded-full flex items-center justify-center text-slate-950 shadow-lg shadow-amber-400/40 group-hover:scale-105 transition-all">
+                    <CameraIcon size={24} className="sm:w-7 sm:h-7" />
+                  </div>
+                </button>
+              </div>
 
-      {/* BOTÓN FLOTANTE LATERAL DERECHO SIEMPRE VISIBLE (CONTROL CON MANO DERECHA / PULGAR) */}
-      <button
-        type="button"
-        onClick={capturePhoto}
-        disabled={!!error || !stream}
-        className="fixed bottom-6 right-5 z-50 w-18 h-18 sm:w-20 sm:h-20 bg-slate-900/95 border-4 border-amber-400 rounded-full flex items-center justify-center shadow-2xl shadow-black/80 active:scale-90 transition-all disabled:opacity-30 disabled:pointer-events-none group backdrop-blur-xl cursor-pointer hover:border-amber-300 ring-4 ring-amber-400/20"
-        title="Tomar Foto (Mano Derecha)"
-      >
-        <div className="w-13 h-13 sm:w-14 sm:h-14 bg-amber-400 group-hover:bg-amber-300 rounded-full flex items-center justify-center text-slate-950 shadow-lg shadow-amber-400/40 group-hover:scale-105 transition-all">
-          <CameraIcon size={26} className="sm:w-7 sm:h-7" />
+              {/* MENSAJE DE INDICACIÓN EN LA PARTE INFERIOR DE LA CÁMARA */}
+              <div className="absolute bottom-4 left-4 right-24 text-left pointer-events-none">
+                <p className="bg-slate-950/85 text-slate-200 text-[10px] sm:text-xs px-3 py-1.5 rounded-full inline-block backdrop-blur-md border border-slate-800 shadow-md">
+                  {mode === 'upc' 
+                    ? 'Apunta a 15–20 cm de distancia' 
+                    : 'Centra el producto con buena luz'
+                  }
+                </p>
+              </div>
+            </>
+          )}
         </div>
-      </button>
+        
+        <canvas ref={canvasRef} className="hidden" />
+
+      {/* BOTÓN FLOTANTE GLOBAL FIJO EN PANTALLA (POR SI HACE SCROLL O EN CUALQUIER TAMAÑO MÓVIL) */}
+      <div className="fixed bottom-6 right-5 z-[9999] pointer-events-auto">
+        <button
+          type="button"
+          onClick={capturePhoto}
+          disabled={!!error || !stream}
+          className="w-16 h-16 sm:w-20 sm:h-20 bg-slate-900 border-4 border-amber-400 hover:border-amber-300 rounded-full flex items-center justify-center shadow-2xl shadow-black active:scale-90 transition-all disabled:opacity-30 disabled:pointer-events-none group backdrop-blur-xl cursor-pointer ring-4 ring-amber-400/30"
+          title="Tomar Foto (Mano Derecha)"
+        >
+          <div className="w-11 h-11 sm:w-14 sm:h-14 bg-amber-400 group-hover:bg-amber-300 rounded-full flex items-center justify-center text-slate-950 shadow-lg shadow-amber-400/50 group-hover:scale-105 transition-all">
+            <CameraIcon size={24} className="sm:w-7 sm:h-7" />
+          </div>
+        </button>
+      </div>
     </div>
   );
 };
