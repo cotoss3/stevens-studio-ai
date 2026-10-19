@@ -250,14 +250,27 @@ const Camera: React.FC<CameraProps> = ({ onCapture, label, mode = 'product', isA
       
       <canvas ref={canvasRef} className="hidden" />
 
-      {/* BARRA DE BOTÓN DE ACCIÓN (DISPARADOR) */}
+      {/* BOTÓN FLOTANTE LATERAL DERECHO (CONTROL CON MANO DERECHA / PULGAR) */}
+      <button
+        type="button"
+        onClick={capturePhoto}
+        disabled={!!error || !stream}
+        className="fixed bottom-8 right-5 z-40 w-16 h-16 sm:w-20 sm:h-20 bg-slate-900/90 border-4 border-amber-400 rounded-full flex items-center justify-center shadow-2xl shadow-black/60 active:scale-90 transition-all disabled:opacity-30 disabled:pointer-events-none group backdrop-blur-md cursor-pointer hover:border-amber-300"
+        title="Tomar Foto (Mano Derecha)"
+      >
+        <div className="w-11 h-11 sm:w-14 sm:h-14 bg-amber-400 group-hover:bg-amber-300 rounded-full flex items-center justify-center text-slate-950 shadow-lg shadow-amber-400/40 group-hover:scale-105 transition-all">
+          <CameraIcon size={24} className="sm:w-7 sm:h-7" />
+        </div>
+      </button>
+
+      {/* BARRA DE BOTÓN DE ACCIÓN (DISPARADOR INFERIOR) */}
       <div className="mt-6 flex items-center justify-center w-full max-w-xs">
         {/* BOTÓN SHUTTER DE DISPARO */}
         <button
           type="button"
           onClick={capturePhoto}
           disabled={!!error || !stream}
-          className="w-20 h-20 bg-slate-900 border-4 border-amber-500/30 rounded-full flex items-center justify-center shadow-2xl active:scale-90 transition-all disabled:opacity-30 disabled:pointer-events-none group"
+          className="w-20 h-20 bg-slate-900 border-4 border-amber-500/30 rounded-full flex items-center justify-center shadow-2xl active:scale-90 transition-all disabled:opacity-30 disabled:pointer-events-none group cursor-pointer"
           title="Capturar Foto"
         >
           <div className="w-14 h-14 bg-amber-400 group-hover:bg-amber-300 rounded-full flex items-center justify-center text-slate-950 shadow-lg shadow-amber-400/30 group-hover:scale-105 transition-all">
