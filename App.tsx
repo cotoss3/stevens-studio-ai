@@ -3624,17 +3624,6 @@ const App: React.FC = () => {
         )}
       </main>
 
-      <footer className="mt-auto pt-10 pb-6 text-slate-500 text-[10px] font-black uppercase tracking-[0.25em] flex flex-col items-center gap-3">
-        <div className="flex items-center gap-4 glass-card/90 px-6 py-2.5 rounded-full border border-white/60/80 shadow-md">
-          <div className="bg-slate-900 px-2.5 py-1 rounded-lg">
-            <img src="/stevens-logo-white.png" alt="Stevens" className="h-3.5 w-auto object-contain" />
-          </div>
-          <div className="w-px h-3.5 bg-slate-300"/>
-          <span className="flex items-center gap-1.5 text-slate-700 font-bold"><Sparkles size={13} className="text-[#06BAB8]"/> ECOMMERCE STUDIO AI</span>
-        </div>
-        <p className="opacity-50 text-[9px]">Stevens Panamá &copy; 2026 • Supabase Cloud Secure</p>
-      </footer>
-
       {/* MODAL VISOR A PANTALLA COMPLETA CON ZOOM Y ESTÁNDARES */}
       <FullscreenPhotoModal
         isOpen={isFullscreenOpen}

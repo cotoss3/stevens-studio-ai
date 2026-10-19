@@ -264,21 +264,6 @@ const Camera: React.FC<CameraProps> = ({ onCapture, label, mode = 'product', isA
         </div>
         
         <canvas ref={canvasRef} className="hidden" />
-
-      {/* BOTÓN FLOTANTE GLOBAL FIJO EN PANTALLA (POR SI HACE SCROLL O EN CUALQUIER TAMAÑO MÓVIL) */}
-      <div className="fixed bottom-6 right-5 z-[9999] pointer-events-auto">
-        <button
-          type="button"
-          onClick={capturePhoto}
-          disabled={!!error || !stream}
-          className="w-16 h-16 sm:w-20 sm:h-20 bg-slate-900 border-4 border-amber-400 hover:border-amber-300 rounded-full flex items-center justify-center shadow-2xl shadow-black active:scale-90 transition-all disabled:opacity-30 disabled:pointer-events-none group backdrop-blur-xl cursor-pointer ring-4 ring-amber-400/30"
-          title="Tomar Foto (Mano Derecha)"
-        >
-          <div className="w-11 h-11 sm:w-14 sm:h-14 bg-amber-400 group-hover:bg-amber-300 rounded-full flex items-center justify-center text-slate-950 shadow-lg shadow-amber-400/50 group-hover:scale-105 transition-all">
-            <CameraIcon size={24} className="sm:w-7 sm:h-7" />
-          </div>
-        </button>
-      </div>
     </div>
   );
 };
