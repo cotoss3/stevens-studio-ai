@@ -340,6 +340,8 @@ app.get("/api/admin/products", async (req, res) => {
       upc: p.upc,
       imageUrl: p.image_url,
       fileId: p.file_path,
+      imageUrl2: p.image_url_2 || null,
+      fileId2: p.file_path_2 || null,
       userName: p.user_name,
       createdAt: p.created_at,
       title: p.title || '',
