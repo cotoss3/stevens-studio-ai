@@ -42,6 +42,36 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
   const [description, setDescription] = useState(initialDescription || '');
   const [transcription, setTranscription] = useState(initialTranscription || '');
 
+  const SUFFIX_DISPONIBILIDAD = ' - Modelo Según Disponibilidad';
+
+  const hasSuffix = (text: string) => {
+    return text.trim().toLowerCase().endsWith('modelo según disponibilidad') ||
+           text.trim().toLowerCase().endsWith('modelo segun disponibilidad');
+  };
+
+  const removeSuffix = (text: string) => {
+    return text
+      .replace(/\s*[-–—]?\s*modelo\s+seg[úu]n\s+disponibilidad\s*$/i, '')
+      .trim();
+  };
+
+  const isModelAvailabilityChecked = hasSuffix(title);
+
+  const handleToggleModelAvailability = (checked: boolean) => {
+    if (!title.trim()) return;
+
+    if (checked) {
+      const base = removeSuffix(title);
+      // Espacio para añadir el sufijo sin exceder 60 caracteres
+      const maxBaseLen = 60 - SUFFIX_DISPONIBILIDAD.length;
+      const truncatedBase = base.slice(0, Math.max(1, maxBaseLen)).trim();
+      setTitle(`${truncatedBase}${SUFFIX_DISPONIBILIDAD}`);
+    } else {
+      const base = removeSuffix(title);
+      setTitle(base);
+    }
+  };
+
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -481,6 +511,30 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
               placeholder="Ej: Camisa Casual de Algodón Hombre Talla M Azul"
               className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-amber-400 transition-colors"
             />
+            
+            {/* CHECKBOX: MODELO SEGÚN DISPONIBILIDAD */}
+            <div className="pt-1">
+              <label 
+                className={`inline-flex items-center gap-2 select-none text-xs font-semibold px-3 py-2 rounded-xl border transition-all ${
+                  !title.trim()
+                    ? 'opacity-40 cursor-not-allowed border-slate-800 bg-slate-950/40 text-slate-500'
+                    : isModelAvailabilityChecked
+                    ? 'bg-amber-500/15 border-amber-400/50 text-amber-300 shadow-sm cursor-pointer'
+                    : 'bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-700 cursor-pointer'
+                }`}
+                title={!title.trim() ? "Escribe o genera un título primero para activar esta opción" : "Agrega o quita '- Modelo Según Disponibilidad' del título"}
+              >
+                <input
+                  type="checkbox"
+                  disabled={!title.trim()}
+                  checked={isModelAvailabilityChecked}
+                  onChange={(e) => handleToggleModelAvailability(e.target.checked)}
+                  className="w-4 h-4 rounded border-slate-700 bg-slate-900 text-amber-500 focus:ring-amber-400 focus:ring-offset-slate-900 cursor-pointer disabled:cursor-not-allowed"
+                />
+                <span>Modelo Según Disponibilidad</span>
+              </label>
+            </div>
+
             <p className="text-[10px] text-slate-400">Regla Stevens: Máximo 60 caracteres.</p>
           </div>
 
