@@ -361,30 +361,35 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
         )}
 
         {/* CONTROLES DE GRABACIÓN DE AUDIO */}
-        <div className="mt-5 flex flex-col items-center justify-center p-6 bg-slate-950/80 rounded-2xl border border-slate-800/80 space-y-4">
+        <div className="mt-5 flex flex-col items-center justify-center p-5 bg-slate-950/80 rounded-2xl border border-slate-800/80 space-y-3">
           
           {isRecording ? (
-            <div className="flex flex-col items-center gap-2 animate-fade-in py-1">
+            <div className="flex flex-col items-center gap-3 animate-fade-in w-full">
               <div className="flex items-center gap-2 text-red-400 font-mono text-xl font-bold">
                 <span className="w-3 h-3 rounded-full bg-red-500 animate-pulse" />
                 {formatTime(recordingTime)}
               </div>
               <p className="text-[11px] text-slate-400">Grabando... Habla de las características básicas del producto.</p>
+              
+              <button
+                type="button"
+                onClick={stopRecording}
+                className="w-full max-w-xs py-3.5 px-6 bg-red-600 hover:bg-red-500 text-white font-black text-xs uppercase tracking-wider rounded-xl flex items-center justify-center gap-2.5 shadow-lg shadow-red-600/30 transition-all active:scale-95 cursor-pointer"
+              >
+                <Square size={16} />
+                <span>Detener Grabación</span>
+              </button>
             </div>
           ) : (
-            <div className="flex items-center justify-between gap-3 w-full max-w-md py-1">
-              <div className="flex items-center gap-2 text-slate-300 text-xs">
-                <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse inline-block" />
-                <span className="font-medium">Toca el botón flotante <Mic size={13} className="inline text-amber-400 mx-0.5" /> a la derecha para hablar</span>
-              </div>
-
+            <div className="flex items-center justify-center w-full max-w-md">
               <button
-                onClick={() => fileInputRef.current?.click()}
+                type="button"
+                onClick={startRecording}
                 disabled={isProcessing}
-                className="py-2 px-3.5 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-all active:scale-95 disabled:opacity-50 shrink-0"
+                className="w-full py-4 px-6 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-sm uppercase tracking-wider rounded-2xl flex items-center justify-center gap-3 transition-all active:scale-95 shadow-xl shadow-amber-500/25 disabled:opacity-50 cursor-pointer"
               >
-                <Upload size={14} className="text-amber-400" />
-                <span>Subir Audio</span>
+                <Mic size={22} className="text-slate-950" />
+                <span>Grabar Nota de Voz</span>
               </button>
             </div>
           )}
@@ -593,32 +598,6 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
           </div>
         </div>
       )}
-
-      {/* BOTÓN FLOTANTE LATERAL DERECHO (GRABAR / DETENER AUDIO CON MANO DERECHA - FIJO A LA PANTALLA) */}
-      <div 
-        className="fixed bottom-8 right-6 z-[99999] pointer-events-auto"
-        style={{ transform: 'translateZ(0)' }}
-      >
-        <button
-          type="button"
-          onClick={isRecording ? stopRecording : startRecording}
-          disabled={isProcessing}
-          className={`w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center shadow-2xl active:scale-90 transition-all disabled:opacity-30 disabled:pointer-events-none group cursor-pointer border-4 ring-4 ${
-            isRecording 
-              ? 'bg-red-950 border-red-500 hover:border-red-400 ring-red-500/30 shadow-red-500/40' 
-              : 'bg-slate-900 border-amber-400 hover:border-amber-300 ring-amber-400/30 shadow-black/80'
-          }`}
-          title={isRecording ? "Detener Grabación" : "Grabar Audio (Mano Derecha)"}
-        >
-          <div className={`w-11 h-11 sm:w-14 sm:h-14 rounded-full flex items-center justify-center shadow-lg transition-all group-hover:scale-105 ${
-            isRecording 
-              ? 'bg-red-500 text-white shadow-red-500/50 animate-pulse' 
-              : 'bg-amber-400 text-slate-950 shadow-amber-400/50 group-hover:bg-amber-300'
-          }`}>
-            {isRecording ? <Square size={22} className="sm:w-6 sm:h-6" /> : <Mic size={24} className="sm:w-7 sm:h-7" />}
-          </div>
-        </button>
-      </div>
     </div>
   );
 };
