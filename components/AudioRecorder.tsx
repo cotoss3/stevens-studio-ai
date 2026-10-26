@@ -268,7 +268,7 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
       return;
     }
     const finalTitle = title.trim().slice(0, 60);
-    const finalDesc = description.trim().slice(0, 160);
+    const finalDesc = description.trim().slice(0, 500);
     onAudioProcessed({
       audioBase64: audioBase64 || '',
       transcription,
@@ -549,19 +549,19 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
               <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider block">
                 Descripción Detallada
               </label>
-              <span className={`text-[10px] font-mono font-bold ${description.length > 160 ? 'text-red-400' : description.length >= 140 ? 'text-amber-400' : 'text-slate-400'}`}>
-                {description.length}/160 car.
+              <span className={`text-[10px] font-mono font-bold ${description.length > 500 ? 'text-red-400' : description.length >= 450 ? 'text-amber-400' : 'text-slate-400'}`}>
+                {description.length}/500 car.
               </span>
             </div>
             <textarea
               rows={3}
-              maxLength={160}
+              maxLength={500}
               value={description}
-              onChange={(e) => setDescription(e.target.value.slice(0, 160))}
+              onChange={(e) => setDescription(e.target.value.slice(0, 500))}
               placeholder="Ej: Producto en material resistente de alta calidad, ideal para uso diario con acabados de primera..."
               className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-amber-400 transition-colors resize-none"
             />
-            <p className="text-[10px] text-slate-400">Regla Stevens: Máximo 160 caracteres.</p>
+            <p className="text-[10px] text-slate-400">Regla Stevens: Máximo 500 caracteres.</p>
           </div>
 
           {/* TRANSCRIPCIÓN VERBATIM DE IA */}

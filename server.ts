@@ -701,9 +701,9 @@ FUENTES:
 1. Audio del operador (MÁXIMA PRIORIDAD para detalles, color, material, talla y uso).
 2. Foto del producto (para validar marca oficial y empaque si está presente).
 
-REGLAS ESTRICTAS E INVIOLABLES DE LONGITUD DE TEXTO (Respétalas SIEMPRE):
+REGLAS ESTRICTAS DE LONGITUD DE TEXTO (Respétalas SIEMPRE):
 1. "title": Título comercial conciso y atractivo con un MÁXIMO ABSOLUTO DE 60 CARACTERES (<= 60 caracteres).
-2. "description": Descripción profesional para tienda web con los atributos esenciales con un MÁXIMO ABSOLUTO DE 160 CARACTERES (<= 160 caracteres).
+2. "description": Descripción profesional para tienda web con los atributos esenciales con un MÁXIMO DE 500 CARACTERES (<= 500 caracteres).
 3. "transcription": Transcribe fielmente lo dicho por el operador.
 
 Responde ÚNICAMENTE un JSON válido con este formato:
@@ -740,7 +740,7 @@ Responde ÚNICAMENTE un JSON válido con este formato:
               if (cleanTitle.length > 60) cleanTitle = cleanTitle.substring(0, 60).trim();
 
               let cleanDesc = (parsed.description || parsed.transcription || '').trim();
-              if (cleanDesc.length > 160) cleanDesc = cleanDesc.substring(0, 160).trim();
+              if (cleanDesc.length > 500) cleanDesc = cleanDesc.substring(0, 500).trim();
 
               return {
                 transcription: parsed.transcription || textOutput,
@@ -750,7 +750,7 @@ Responde ÚNICAMENTE un JSON válido con este formato:
             } catch (parseErr) {
               let cleanTitle = 'Producto Catalogado';
               let cleanDesc = textOutput.trim();
-              if (cleanDesc.length > 160) cleanDesc = cleanDesc.substring(0, 160).trim();
+              if (cleanDesc.length > 500) cleanDesc = cleanDesc.substring(0, 500).trim();
               return {
                 transcription: textOutput,
                 title: cleanTitle,

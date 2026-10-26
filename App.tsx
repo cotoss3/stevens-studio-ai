@@ -664,9 +664,9 @@ const App: React.FC = () => {
 
       setProcessingMessage('REGISTRANDO PRODUCTO Y FICHA EN EL SISTEMA...');
 
-      // Validar regla de caracteres en el título (<= 60) y descripción (<= 160)
+      // Validar regla de caracteres en el título (<= 60) y descripción (<= 500)
       const safeTitle = state.productTitle ? state.productTitle.trim().slice(0, 60) : null;
-      const safeDesc = state.productDescription ? state.productDescription.trim().slice(0, 160) : null;
+      const safeDesc = state.productDescription ? state.productDescription.trim().slice(0, 500) : null;
 
       // Insertar producto en la base de datos con información completa
       const productPayload: any = {
