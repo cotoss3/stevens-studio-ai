@@ -701,9 +701,10 @@ FUENTES:
 1. Audio del operador (MÁXIMA PRIORIDAD para detalles, color, material, talla y uso).
 2. Foto del producto (para validar marca oficial y empaque si está presente).
 
-REGLAS ESTRICTAS DE LONGITUD DE TEXTO (Respétalas SIEMPRE):
-1. "title": Título comercial conciso y atractivo con un MÁXIMO ABSOLUTO DE 60 CARACTERES (<= 60 caracteres).
-2. "description": Descripción profesional para tienda web con los atributos esenciales con un MÁXIMO DE 500 CARACTERES (<= 500 caracteres).
+REGLAS ESTRICTAS DE CATALOGACIÓN Y LONGITUD (Respétalas SIEMPRE):
+1. "title": Título comercial conciso y directo con un MÁXIMO ABSOLUTO DE 60 CARACTERES (<= 60 caracteres).
+2. "description": Descripción profesional para tienda web con los atributos esenciales y un MÁXIMO DE 500 CARACTERES (<= 500 caracteres).
+   - REGLA DE ADJETIVOS: Usa un MÁXIMO DE 2 ADJETIVOS calificativos en toda la descripción. Prioriza datos objetivos y descriptivos (material, color, uso, dimensiones o especificaciones) sin adornos ni florituras excesivas.
 3. "transcription": Transcribe fielmente lo dicho por el operador.
 
 Responde ÚNICAMENTE un JSON válido con este formato:
@@ -790,6 +791,109 @@ Responde ÚNICAMENTE un JSON válido con este formato:
         cleanMsg = "Alta demanda momentánea en los servidores de IA de Google. Puedes reintentar o llenar la ficha manualmente.";
       }
       return res.status(500).json({ error: cleanMsg });
+    }
+  });
+
+  // Regenerar individualmente título o descripción
+  app.post("/api/gemini/regenerate-field", async (req, res) => {
+    try {
+      const { field, transcription, currentTitle, currentDescription, base64Image, upcCode } = req.body;
+      if (!field || (field !== 'title' && field !== 'description')) {
+        return res.status(400).json({ error: "Campo a regenerar inválido (debe ser 'title' o 'description')." });
+      }
+
+      if (!process.env.GEMINI_API_KEY) {
+        return res.status(500).json({ error: "GEMINI_API_KEY no está configurada." });
+      }
+
+      const candidateModels = [
+        process.env.GEMINI_AUDIO_MODEL || 'gemini-3.5-flash-lite',
+        'gemini-3.5-flash',
+        'gemini-flash-latest',
+        'gemini-3.8-flash'
+      ];
+      const uniqueModels = Array.from(new Set(candidateModels));
+
+      const parts: any[] = [];
+      if (base64Image) {
+        const cleanImgBase64 = base64Image.split(',')[1] || base64Image;
+        parts.push({
+          inlineData: {
+            mimeType: 'image/jpeg',
+            data: cleanImgBase64,
+          },
+        });
+      }
+
+      const promptContext = `Actúa como catalogador e-commerce profesional para Stevens.
+${upcCode ? `Código UPC: ${upcCode}.\n` : ''}
+CONTEXTO DISPONIBLE:
+- Transcripción de voz del operador: "${transcription || 'No disponible'}"
+- Título actual: "${currentTitle || 'No especificado'}"
+- Descripción actual: "${currentDescription || 'No especificada'}"
+
+TAREA ESPECÍFICA:
+${field === 'title' 
+  ? `Genera un NUEVO título comercial atractivo, conciso y diferente para este producto.
+REGLAS:
+- MÁXIMO 60 CARACTERES (<= 60 caracteres).
+- Debe incluir tipo de producto, marca/modelo o característica principal.
+- Responde ÚNICAMENTE un JSON con: {"title": "..."}`
+  : `Genera una NUEVA descripción comercial para tienda web con los atributos esenciales del producto.
+REGLAS:
+- MÁXIMO 500 CARACTERES (<= 500 caracteres).
+- REGLA DE ADJETIVOS: Usa un MÁXIMO DE 2 ADJETIVOS calificativos en toda la descripción. Prioriza datos objetivos y descriptivos (material, color, uso, dimensiones o especificaciones) sin adornos ni florituras excesivas.
+- Responde ÚNICAMENTE un JSON con: {"description": "..."}`
+}`;
+
+      parts.push({ text: promptContext });
+
+      let result: any = null;
+      let lastError: any = null;
+
+      for (const currentModel of uniqueModels) {
+        try {
+          result = await executeWithRetry(async () => {
+            const client = getGeminiClient();
+            const response = await client.models.generateContent({
+              model: currentModel,
+              contents: { parts },
+              config: {
+                responseMimeType: "application/json",
+                maxOutputTokens: 300,
+                temperature: 0.4
+              }
+            });
+
+            const textOutput = response.text?.trim() || '';
+            const parsed = JSON.parse(textOutput);
+            if (field === 'title') {
+              let clean = (parsed.title || textOutput).trim();
+              if (clean.length > 60) clean = clean.substring(0, 60).trim();
+              return { title: clean };
+            } else {
+              let clean = (parsed.description || textOutput).trim();
+              if (clean.length > 500) clean = clean.substring(0, 500).trim();
+              return { description: clean };
+            }
+          }, 2, 800);
+
+          if (result) break;
+        } catch (modelErr: any) {
+          console.warn(`[regenerate-field] Modelo ${currentModel} falló:`, modelErr.message || modelErr);
+          lastError = modelErr;
+        }
+      }
+
+      if (!result) {
+        let cleanMsg = lastError?.message || "No se pudo regenerar el campo con IA.";
+        return res.status(500).json({ error: cleanMsg });
+      }
+
+      return res.json(result);
+    } catch (error: any) {
+      console.error("Error in regenerate-field endpoint:", error);
+      return res.status(500).json({ error: error.message || "Error al regenerar el campo" });
     }
   });
 

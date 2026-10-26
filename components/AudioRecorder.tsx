@@ -41,6 +41,8 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
   const [title, setTitle] = useState(initialTitle || '');
   const [description, setDescription] = useState(initialDescription || '');
   const [transcription, setTranscription] = useState(initialTranscription || '');
+  const [isRegeneratingTitle, setIsRegeneratingTitle] = useState(false);
+  const [isRegeneratingDesc, setIsRegeneratingDesc] = useState(false);
 
   const SUFFIX_DISPONIBILIDAD = ' - Modelo Según Disponibilidad';
 
@@ -248,6 +250,70 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
       setError(rawMsg);
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  const handleRegenerateTitle = async () => {
+    if (isRegeneratingTitle || isProcessing) return;
+    setIsRegeneratingTitle(true);
+    setError(null);
+    try {
+      let optimizedImg = productImage;
+      if (productImage && productImage.startsWith('data:image')) {
+        optimizedImg = await compressImageForAI(productImage, 400, 0.65);
+      }
+      const res = await geminiService.regenerateField({
+        field: 'title',
+        transcription,
+        currentTitle: title,
+        currentDescription: description,
+        base64Image: optimizedImg,
+        upcCode
+      });
+      if (res.title) {
+        // Si el sufijo de disponibilidad estaba marcado previamente, preservarlo si cabe
+        if (isModelAvailabilityChecked) {
+          const cleanNew = removeSuffix(res.title);
+          const maxBase = 60 - SUFFIX_DISPONIBILIDAD.length;
+          const basePart = cleanNew.length > maxBase ? cleanNew.slice(0, maxBase).trim() : cleanNew;
+          setTitle(`${basePart}${SUFFIX_DISPONIBILIDAD}`);
+        } else {
+          setTitle(res.title.slice(0, 60));
+        }
+      }
+    } catch (err: any) {
+      console.error("Error regenerating title:", err);
+      setError(err.message || "No se pudo regenerar el título");
+    } finally {
+      setIsRegeneratingTitle(false);
+    }
+  };
+
+  const handleRegenerateDescription = async () => {
+    if (isRegeneratingDesc || isProcessing) return;
+    setIsRegeneratingDesc(true);
+    setError(null);
+    try {
+      let optimizedImg = productImage;
+      if (productImage && productImage.startsWith('data:image')) {
+        optimizedImg = await compressImageForAI(productImage, 400, 0.65);
+      }
+      const res = await geminiService.regenerateField({
+        field: 'description',
+        transcription,
+        currentTitle: title,
+        currentDescription: description,
+        base64Image: optimizedImg,
+        upcCode
+      });
+      if (res.description) {
+        setDescription(res.description.slice(0, 500));
+      }
+    } catch (err: any) {
+      console.error("Error regenerating description:", err);
+      setError(err.message || "No se pudo regenerar la descripción");
+    } finally {
+      setIsRegeneratingDesc(false);
     }
   };
 
@@ -501,9 +567,21 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
           {/* CAMPO DE TÍTULO DEL PRODUCTO */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider block">
-                Título del Producto
-              </label>
+              <div className="flex items-center gap-2">
+                <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider block">
+                  Título del Producto
+                </label>
+                <button
+                  type="button"
+                  onClick={handleRegenerateTitle}
+                  disabled={isRegeneratingTitle || isProcessing}
+                  title="Regenerar solo el título con IA"
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-slate-800 hover:bg-slate-700 text-amber-300 hover:text-amber-200 border border-slate-700 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <RefreshCw size={10} className={isRegeneratingTitle ? 'animate-spin' : ''} />
+                  <span>{isRegeneratingTitle ? 'Generando...' : 'Regenerar'}</span>
+                </button>
+              </div>
               <span className={`text-[10px] font-mono font-bold ${title.length > 60 ? 'text-red-400' : title.length >= 50 ? 'text-amber-400' : 'text-slate-400'}`}>
                 {title.length}/60 car.
               </span>
@@ -546,9 +624,21 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
           {/* CAMPO DE DESCRIPCIÓN DETALLADA */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider block">
-                Descripción Detallada
-              </label>
+              <div className="flex items-center gap-2">
+                <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider block">
+                  Descripción Detallada
+                </label>
+                <button
+                  type="button"
+                  onClick={handleRegenerateDescription}
+                  disabled={isRegeneratingDesc || isProcessing}
+                  title="Regenerar solo la descripción con IA (máximo 2 adjetivos)"
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-slate-800 hover:bg-slate-700 text-amber-300 hover:text-amber-200 border border-slate-700 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <RefreshCw size={10} className={isRegeneratingDesc ? 'animate-spin' : ''} />
+                  <span>{isRegeneratingDesc ? 'Generando...' : 'Regenerar'}</span>
+                </button>
+              </div>
               <span className={`text-[10px] font-mono font-bold ${description.length > 500 ? 'text-red-400' : description.length >= 450 ? 'text-amber-400' : 'text-slate-400'}`}>
                 {description.length}/500 car.
               </span>
@@ -561,7 +651,7 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
               placeholder="Ej: Producto en material resistente de alta calidad, ideal para uso diario con acabados de primera..."
               className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-amber-400 transition-colors resize-none"
             />
-            <p className="text-[10px] text-slate-400">Regla Stevens: Máximo 500 caracteres.</p>
+            <p className="text-[10px] text-slate-400">Regla Stevens: Máximo 500 caracteres, máx. 2 adjetivos.</p>
           </div>
 
           {/* TRANSCRIPCIÓN VERBATIM DE IA */}

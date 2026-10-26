@@ -88,6 +88,33 @@ export class GeminiService {
 
     return await response.json();
   }
+
+  /**
+   * Regenerates a single field ('title' or 'description') with Gemini AI.
+   */
+  async regenerateField(params: {
+    field: 'title' | 'description';
+    transcription?: string;
+    currentTitle?: string;
+    currentDescription?: string;
+    base64Image?: string | null;
+    upcCode?: string | null;
+  }): Promise<{ title?: string; description?: string }> {
+    const response = await fetch('/api/gemini/regenerate-field', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(params),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `Error al regenerar (${response.status})`);
+    }
+
+    return await response.json();
+  }
 }
 
 export const geminiService = new GeminiService();
