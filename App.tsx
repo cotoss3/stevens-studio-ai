@@ -3408,6 +3408,22 @@ const App: React.FC = () => {
                   )}
 
                   <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                    {/* Botón de Reintentar Estudio IA con la misma foto cruda */}
+                    {((capturingPhotoSlot === 1 && lastProductRawImage) || (capturingPhotoSlot === 2 && lastProductRawImage2)) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const raw = capturingPhotoSlot === 1 ? lastProductRawImage : lastProductRawImage2;
+                          if (raw) handleCaptureProduct(raw);
+                        }}
+                        className="w-full sm:flex-1 py-3 sm:py-3.5 px-3 sm:px-4 bg-amber-500/15 hover:bg-amber-500/25 text-amber-700 font-bold text-xs uppercase tracking-wider rounded-xl sm:rounded-2xl transition-all border border-amber-400/50 flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+                        title="Vuelve a procesar la misma foto original con IA sin tener que capturarla nuevamente"
+                      >
+                        <Sparkles size={14} className="text-amber-500" />
+                        Reintentar con IA
+                      </button>
+                    )}
+
                     <button
                       type="button"
                       onClick={() => {
