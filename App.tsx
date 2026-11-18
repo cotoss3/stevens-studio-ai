@@ -1444,7 +1444,8 @@ const App: React.FC = () => {
     };
 
     return (
-      <div className="min-h-screen flex font-sans glass-panel">
+      <div className="min-h-screen flex font-sans relative z-0">
+        <div className="absolute inset-0 z-[-1] glass-panel pointer-events-none" />
         {/* ── Sidebar (solo escritorio) ─────────────────────────────────────── */}
         <aside className="hidden md:flex w-64 min-h-screen glass-card border-r border-white/60 flex-col shadow-xl shadow-black/30 shrink-0">
           {/* Logo Stevens */}
@@ -2646,15 +2647,15 @@ const App: React.FC = () => {
         {/* ── Modal: vista previa de foto ───────────────────────────── */}
         {previewPhoto && (
           <div
-            className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4"
+            className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4"
             onClick={closePreview}
           >
             <div
-              className="glass-card border border-white/60 rounded-[28px] overflow-hidden w-full max-w-4xl max-h-[92vh] flex flex-col bg-white/90"
+              className="glass-card border border-white/60 rounded-[24px] sm:rounded-[28px] overflow-hidden w-full max-w-3xl max-h-[90dvh] flex flex-col bg-white/95 shadow-2xl"
               onClick={e => e.stopPropagation()}
             >
               {/* Encabezado */}
-              <div className="flex items-center justify-between gap-4 px-5 py-3 border-b border-white/60 bg-white/60">
+              <div className="flex items-center justify-between gap-4 px-4 sm:px-5 py-3 border-b border-white/60 bg-white/80 shrink-0">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-mono font-black text-slate-800 truncate">{previewPhoto.upc}</p>
@@ -2679,7 +2680,7 @@ const App: React.FC = () => {
 
               {/* Selector de Foto 1 / Foto 2 si el producto tiene 2 fotos */}
               {previewPhoto.imageUrl2 && (
-                <div className="flex items-center justify-center gap-3 px-5 py-2.5 bg-slate-100/90 border-b border-slate-200">
+                <div className="flex items-center justify-center gap-3 px-4 sm:px-5 py-2.5 bg-slate-100/90 border-b border-slate-200 shrink-0">
                   <button
                     type="button"
                     onClick={() => setPreviewPhotoSlot(1)}
@@ -2712,11 +2713,11 @@ const App: React.FC = () => {
               )}
 
               {/* Imagen */}
-              <div className="relative flex-1 min-h-0 bg-white flex items-center justify-center p-4">
+              <div className="relative flex-1 min-h-0 overflow-hidden bg-white flex items-center justify-center p-3 sm:p-4">
                 <img
                   src={previewPhotoSlot === 2 && previewPhoto.imageUrl2 ? previewPhoto.imageUrl2 : previewPhoto.imageUrl}
                   alt={previewPhoto.upc}
-                  className="max-w-full max-h-[64vh] object-contain"
+                  className="max-w-full max-h-[48vh] sm:max-h-[58vh] object-contain"
                 />
 
                 {previewList.length > 1 && (
@@ -2743,7 +2744,7 @@ const App: React.FC = () => {
 
               {/* Ficha técnica: Título y Descripción */}
               {(previewPhoto.title || previewPhoto.description) && (
-                <div className="px-5 py-3 bg-slate-50/90 border-t border-slate-200/70 max-h-36 overflow-y-auto">
+                <div className="px-4 sm:px-5 py-3 bg-slate-50/90 border-t border-slate-200/70 max-h-28 sm:max-h-36 overflow-y-auto shrink-0">
                   {previewPhoto.title && (
                     <p className="text-xs font-bold text-slate-900 mb-1">
                       {previewPhoto.title}
@@ -2758,7 +2759,7 @@ const App: React.FC = () => {
               )}
 
               {/* Acciones */}
-              <div className="flex gap-2 px-5 py-3 border-t border-white/60 bg-white/60">
+              <div className="flex flex-wrap gap-2 px-4 sm:px-5 py-3 border-t border-white/60 bg-white/80 shrink-0">
                 <button
                   type="button"
                   onClick={() => downloadSinglePhoto(previewPhoto)}
@@ -2886,7 +2887,7 @@ const App: React.FC = () => {
         </div>
       )}
 
-      <main className="w-full max-w-2xl glass-card/95 rounded-[2rem] sm:rounded-[3rem] shadow-2xl shadow-black/60 border border-white/60/80 p-4 sm:p-6 md:p-10 min-h-[480px] sm:min-h-[550px] flex flex-col items-center relative overflow-visible ring-1 ring-slate-900/10 backdrop-blur-md">
+      <main className="w-full max-w-2xl glass-card/95 rounded-[2rem] sm:rounded-[3rem] shadow-2xl shadow-black/60 border border-white/60/80 p-4 sm:p-6 md:p-10 min-h-[480px] sm:min-h-[550px] flex flex-col items-center relative overflow-visible ring-1 ring-slate-900/10">
         {state.isProcessing && (
           <div className="absolute inset-0 bg-white/95 backdrop-blur-2xl z-50 flex flex-col items-center justify-center animate-in fade-in duration-300 px-6 sm:px-10 text-center">
             {/* Halo pulsante calmante con icono centrado */}
